@@ -1,65 +1,169 @@
-import Image from "next/image";
+// import Image from 'next/image'
+import Link from 'next/link'
+import { companies, partners, features } from '@/lib/constants'
 
-export default function Home() {
+
+const HomePage = () => {
+  // Get top companies (those marked as hot or with highest positive change)
+  const topCompanies = companies
+    .filter(company => company.isHot || company.change24h > 0)
+    .sort((a, b) => b.change24h - a.change24h)
+    .slice(0, 6);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <section id="hero">
+
+      <div>
+      </div>
+
+    
+      {/* Hero Section */}
+      <div className="top-grid">
+        {/* First Row*/}
+                <div className="md:col-span-3">
+                    <div  className="noisy" />
+                    <img src="/images/obzebra.png" alt="grid-img-5 " />
+                    
+                </div>
+
+                <div className="md:col-span-9">
+                    <div  className="noisy" />
+                    <h1 className="text-6xl font-bold mt-10 text-center">Invest in Kenya</h1>
+                    <p className='text-center mt-4 font-mono text-lg'>Company shares as security tokens</p>
+                    <div className='flex justify-center gap-4 lg:mt-8 md:mt-4'>
+                      <a href='/auth/signup' className="bg-accent-foreground badge">Sign Up</a>
+                    <a href='/auth/login' className="badge">Log In</a>
+                    </div>
+                    
+                </div>
+              {/* 2nd Row */}
+
+
+                <div className="md:col-span-2">
+                    <div  className="" />
+                    <h1 className='text-5xl mt-16 text-primary'>
+                    From<br/>Anywhere
+                    </h1>
+                   
+                    
+                </div>
+                <div className="md:col-span-7 bg-transparent ">
+                    <div  className="noisy " />
+                    <img src="/icons/mapbase.svg" alt="grid-img-5  " className=''/>
+                    <p>NBX democratizes investing by turning company shares into security tokens</p>
+                    
+                    
+                    
+                    
+                </div>
+                <div className="md:col-span-3 hover:bg-primary hover:text-black transition-all duration-300 ease-in-out rounded-lg p-6">
+                    <div  className="lg:mt-14 lg:text-2xl md:text-2xl text-center">
+                        <ul>
+                        <li>
+                              Fractional ownerships
+                              </li>
+                          <li>
+                            Instant Settlements
+                          </li>
+                          <li>
+                            Borderless investment
+                            </li>
+                            
+                        </ul>
+                    </div>
+
+                </div>
+
+                    
+
+      </div>
+                    {/* Features Grid - Each feature is now a direct child of the grid */}
+                    <div className="middle-grid">
+        {features.map((feature: { icon: string; title: string; description: string }, index: number) => (
+          <div key={index} className="md:col-span-3">
+            <div className="feature-card p-6 backdrop-brightness-50 rounded-lg border border-primary h-full">
+              <div className="feature-icon">
+                <img src={feature.icon || "/placeholder.svg"} alt={feature.title} className="w-32 h-32" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-primary">{feature.title}</h3>
+              <p className="text-muted-foreground">{feature.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+
+
+            <div className="bigsix-grid">
+
+              <div className='md:col-span-6 text-center '>
+                <h2 className="text-6xl font-bold mt-12">Big Six</h2>
+                <p className='mt-4'> The 6 promising Companies</p>
+
+              </div>
+            {topCompanies.map((company) => (
+              <div key={company.symbol} className=" border-t-3 border-white rounded-lg p-4 flex items-center md:col-span-3"
+              style={{ backgroundColor: company.bgColor }}>
+                <div>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mr-4">
+                {/* Company icon would go here */}
+                <span className="text-xl font-bold">{company.symbol.charAt(0)}</span>
+              </div>
+
+              <div className="flex-1  ">
+                <h3 className="font-bold text-white">{company.name}</h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-black">{company.symbol}</span>
+                  <span className={`text-sm ${company.change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {company.change24h >= 0 ? '+' : ''}{company.change24h}%
+                  </span>
+                </div>
+              </div>
+              </div>
+              <a href={company.website} target="_blank" rel="noopener noreferrer" className="badge ml-auto">See</a>
+            </div>
+            
+          ))}
+      </div>
+      <div className="bottom-grid">
+        <div id='temp' className="md:col-span-5 text-center">
+                    
+                   <h1 className='text-center'>The</h1> 
+                </div>
+                <div id='tempy' className="md:col-span-5">
+                    
+                    <h1 className='text-center'>Next</h1>
+                </div>
+                <div id='tempy' className="md:col-span-10">
+                    
+                <h1 className='text-center'>Step</h1>
+                </div>
+               
+            </div>
+
+      {/* Top Companies Section */}
+            <div className="flex flex-col items-center">
+      
+
+      {/* Partners Section */}
+      <div className="w-full max-w-5xl mb-16">
+        <h2 className="text-2xl font-bold mb-6 text-center">Our Partners</h2>
+
+        <div className="flex flex-wrap justify-center gap-8">
+          {partners.map((partner) => (
+            <div key={partner.name} className="text-center">
+              <div className="w-24 h-24 bg-dark-200 rounded-lg flex items-center justify-center mb-2 mx-auto">
+                {/* Partner logo would go here */}
+                <span className="text-sm font-medium text-light-100">{partner.name.split(' ').map(word => word[0]).join('')}</span>
+              </div>
+              <p className="text-sm text-light-100">{partner.name}</p>
+            </div>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
-  );
+    </section>
+  )
 }
+
+export default HomePage
