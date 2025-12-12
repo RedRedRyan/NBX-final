@@ -30,24 +30,28 @@ export default function RootLayout({
         className={`${schibstedGrotesk.variable} ${martianMono.variable} min-h-screen antialiased`}
       >
         <AuthProvider>
-          <Sidebar />
-          <div className="absolute inset-0 top-0 z-[-1] overflow-hidden min-h-screen">
-            <LightRays
-              raysOrigin="top-center-offset"
-              raysColor="#fb4f1f"
-              raysSpeed={1.5}
-              lightSpread={1.8}
-              rayLength={1.2}
-              followMouse={true}
-              mouseInfluence={0.1}
-              noiseAmount={0.1}
-              distortion={0.05}
-              className="custom-rays"
-            />
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="relative flex-1">
+              <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                <LightRays
+                  raysOrigin="top-center-offset"
+                  raysColor="#fb4f1f"
+                  raysSpeed={1.5}
+                  lightSpread={1.8}
+                  rayLength={1.2}
+                  followMouse={true}
+                  mouseInfluence={0.1}
+                  noiseAmount={0.1}
+                  distortion={0.05}
+                  className="custom-rays"
+                />
+              </div>
+              <main className="min-h-screen px-6 pt-6 md:px-10">
+                {children}
+              </main>
+            </div>
           </div>
-          <main className="ml-[16.67%] w-[83.33%]">
-            {children}
-          </main>
         </AuthProvider>
       </body>
     </html>

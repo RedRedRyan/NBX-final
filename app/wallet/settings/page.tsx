@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/context/AuthContext';
 const WalletSettingsPage = () => {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const email = user?.email ?? user?.useremail ?? '';
+  const accountTypeLabel = user?.accountType === 'individual' ? 'Individual' : 'Institution';
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -65,7 +67,7 @@ const WalletSettingsPage = () => {
                 </label>
                 <input
                   type="email"
-                  value={user.email}
+                  value={email}
                   readOnly
                   className="w-full bg-dark-200 border border-border rounded-md py-2 px-3"
                 />
@@ -77,7 +79,7 @@ const WalletSettingsPage = () => {
                 </label>
                 <input
                   type="text"
-                  value={user.accountType === 'individual' ? 'Individual' : 'Institution'}
+                  value={accountTypeLabel}
                   readOnly
                   className="w-full bg-dark-200 border border-border rounded-md py-2 px-3"
                 />

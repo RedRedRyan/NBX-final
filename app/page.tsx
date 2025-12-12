@@ -1,60 +1,86 @@
 // import Image from 'next/image'
+"use client";
 import Link from 'next/link'
 import { companies, partners, features } from '@/lib/constants'
+import { useAuth } from '@/lib/context/AuthContext'
+import ParticlesBackground from '@/components/ParticlesBackground'
 
 
 const HomePage = () => {
+  const { isAuthenticated } = useAuth()
   // Get top companies (those marked as hot or with highest positive change)
   const topCompanies = companies
     .filter(company => company.isHot || company.change24h > 0)
     .sort((a, b) => b.change24h - a.change24h)
     .slice(0, 6);
 
+  const tickerItems = [...companies, ...companies];
+
   return (
-    <section id="hero">
+    <section id="hero" className="relative overflow-hidden">
 
       <div>
       </div>
 
     
       {/* Hero Section */}
-      <div className="top-grid">
-        {/* First Row*/}
-                <div className="md:col-span-3">
-                    <div  className="noisy" />
-                    <img src="/images/obzebra.png" alt="grid-img-5 " />
-                    
-                </div>
+      <ParticlesBackground />
+      <div className="ticker">
+        <div className="ticker-track">
+          {tickerItems.map((company, index) => {
+            const isPositive = company.change24h >= 0;
+            const formattedChange = `${isPositive ? "+" : ""}${company.change24h}%`;
 
+            return (
+              <div key={`${company.symbol}-${index}`} className="ticker-item">
+                <span className="symbol">{company.symbol}</span>
+                <span className="price">{company.price.toFixed(2)} KES</span>
+                <span className={isPositive ? "change-positive" : "change-negative"}>{formattedChange}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+  <div className="top-grid mt-24">
+        {/* First Row*/}
                 <div className="md:col-span-9">
                     <div  className="noisy" />
                     <h1 className="text-6xl font-bold mt-10 text-center">Invest in Kenya</h1>
-                    <p className='text-center mt-4 font-mono text-lg'>Company shares as security tokens</p>
+                    <p className='text-center mt-4 font-mono text-lg'>SME capital markets redefined</p>
                     <div className='flex justify-center gap-4 lg:mt-8 md:mt-4'>
-                      <a href='/auth/signup' className="bg-accent-foreground badge">Sign Up</a>
-                    <a href='/auth/login' className="badge">Log In</a>
+                      {isAuthenticated ? (
+                        <>
+                          <a href='/markets' className="bg-accent-foreground badge">Explore Markets</a>
+                          <a href='/wallet' className="badge">Portfolio</a>
+                        </>
+                      ) : (
+                        <>
+                          <a href='/auth/signup' className="bg-accent-foreground badge">Sign Up</a>
+                          <a href='/auth/login' className="badge">Log In</a>
+                        </>
+                      )}
                     </div>
+                    
+                </div>
+                 <div className="md:col-span-3">
+                    <div  className="noisy" />
+                    <img src="/images/obzebra.png" alt="grid-img-5" />
                     
                 </div>
               {/* 2nd Row */}
 
-
-                <div className="md:col-span-2">
-                    <div  className="" />
-                    <h1 className='text-5xl mt-16 text-primary'>
-                    From<br/>Anywhere
-                    </h1>
-                   
-                    
-                </div>
-                <div className="md:col-span-7 bg-transparent ">
+                <div className="md:col-span-9 bg-transparent ">
                     <div  className="noisy " />
-                    <img src="/icons/mapbase.svg" alt="grid-img-5  " className=''/>
-                    <p>NBX democratizes investing by turning company shares into security tokens</p>
-                    
-                    
-                    
-                    
+                    <img src="/icons/mapbase.svg" alt="grid-img-5  " className='' />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                      <h2 id="AnyText" >
+                        Anywhere Anytime
+                      </h2>
+                      <p className="max-w-lg text-white">
+                        NBX democratizes investing by turning company shares into security tokens
+                      </p>
+                    </div>
                 </div>
                 <div className="md:col-span-3 hover:bg-primary hover:text-black transition-all duration-300 ease-in-out rounded-lg p-6">
                     <div  className="lg:mt-14 lg:text-2xl md:text-2xl text-center">
@@ -97,8 +123,8 @@ const HomePage = () => {
             <div className="bigsix-grid">
 
               <div className='md:col-span-6 text-center '>
-                <h2 className="text-6xl font-bold mt-12">Big Six</h2>
-                <p className='mt-4'> The 6 promising Companies</p>
+                <h2 className="text-6xl font-bold mt-12">SMEs Big Six</h2>
+                <p className='mt-4'> An index of the 6 most promising companies</p>
 
               </div>
             {topCompanies.map((company) => (
@@ -126,20 +152,11 @@ const HomePage = () => {
           ))}
       </div>
       <div className="bottom-grid">
-        <div id='temp' className="md:col-span-5 text-center">
-                    
-                   <h1 className='text-center'>The</h1> 
-                </div>
-                <div id='tempy' className="md:col-span-5">
-                    
-                    <h1 className='text-center'>Next</h1>
-                </div>
-                <div id='tempy' className="md:col-span-10">
-                    
-                <h1 className='text-center'>Step</h1>
-                </div>
-               
-            </div>
+        <div className="md:col-span-12 flex flex-col items-center justify-center text-center">
+          <h2 id='AnyText' >Together lets take SMEs to</h2><br/>
+          <h1 className='text-center'>The Next Step</h1>
+        </div>
+      </div>
 
       {/* Top Companies Section */}
             <div className="flex flex-col items-center">
@@ -153,8 +170,8 @@ const HomePage = () => {
           {partners.map((partner) => (
             <div key={partner.name} className="text-center">
               <div className="w-24 h-24 bg-dark-200 rounded-lg flex items-center justify-center mb-2 mx-auto">
-                {/* Partner logo would go here */}
-                <span className="text-sm font-medium text-light-100">{partner.name.split(' ').map(word => word[0]).join('')}</span>
+                <img alt={partner.name} src={partner.logo}/>
+                {/* To do get Partner logo */}
               </div>
               <p className="text-sm text-light-100">{partner.name}</p>
             </div>

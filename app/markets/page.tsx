@@ -8,6 +8,8 @@ import { useAuth } from '@/lib/context/AuthContext';
 const MarketsPage = () => {
   const router = useRouter();
   const { user } = useAuth();
+  const email = user?.email ?? user?.useremail ?? '';
+  const emailInitial = email ? email.charAt(0).toUpperCase() : 'U';
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [filteredCompanies, setFilteredCompanies] = useState(companies);
@@ -97,7 +99,7 @@ const MarketsPage = () => {
           {/* Profile icon */}
           <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center cursor-pointer">
             <span className="text-sm font-medium">
-              {user.email.charAt(0).toUpperCase()}
+              {emailInitial}
             </span>
           </div>
         </div>

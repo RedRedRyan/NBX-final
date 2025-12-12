@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 
 const LoginPage = () => {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,16 +27,20 @@ const LoginPage = () => {
     try {
       setIsLoading(true);
       await login(email, password);
-      router.push('/markets'); // Redirect to markets page after login
-    } catch (error) {
-      setError('Invalid email or password');
+      
+      // Redirect based on user role
+      // Note: user will be updated after login, so we check the response
+      // For now, redirect to a default page and let the app handle role-based routing
+      router.push('/markets');
+    } catch (error: any) {
+      setError(error?.message || 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 py-8">
       <div className="w-full max-w-md p-8 space-y-8 bg-dark-100 rounded-lg border border-border">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Sign In</h1>
@@ -44,7 +48,7 @@ const LoginPage = () => {
         </div>
         
         {error && (
-          <div className="bg-destructive/10 text-destructive p-3 rounded-md">
+          <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
             {error}
           </div>
         )}
@@ -59,7 +63,7 @@ const LoginPage = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md"
+              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="you@example.com"
               required
             />
@@ -74,7 +78,7 @@ const LoginPage = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md"
+              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="••••••••"
               required
             />
@@ -104,7 +108,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>

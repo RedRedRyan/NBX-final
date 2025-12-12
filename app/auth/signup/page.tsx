@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/lib/context/AuthContext';
+import { useAuth, UserRole } from '@/lib/context/AuthContext';
 
 const SignupPage = () => {
   const router = useRouter();
@@ -12,7 +12,7 @@ const SignupPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [accountType, setAccountType] = useState<'individual' | 'institution'>('individual');
+  const [role, setRole] = useState<UserRole>('investor');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,52 +38,61 @@ const SignupPage = () => {
     
     try {
       setIsLoading(true);
-      await signup(email, password, accountType);
-      router.push('/markets'); // Redirect to markets page after signup
-    } catch (error) {
-      setError('Failed to create account');
+      await signup(email, password, role);
+      
+      // Redirect based on user role
+      if (role === 'company') {
+        router.push('/company/setup');
+      } else if (role === 'auditor') {
+        router.push('/auditor/dashboard');
+      } else {
+        router.push('/markets');
+      }
+    } catch (error: any) {
+      setError(error?.message || 'Failed to create account');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const roleDescriptions = {
+    investor: 'Browse and invest in tokenized SME shares',
+    company: 'Issue security tokens and manage shareholders',
+    auditor: 'Access and verify financial disclosures',
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 py-8">
       <div className="w-full max-w-md p-8 space-y-8 bg-dark-100 rounded-lg border border-border">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Create an Account</h1>
           <p className="mt-2 text-light-100">Join NBX to start trading equities and bonds</p>
         </div>
         
-        <div className="flex space-x-4 mb-6">
-          <button
-            type="button"
-            className={`flex-1 py-2 rounded-md ${
-              accountType === 'individual' 
-                ? 'bg-primary text-white' 
-                : 'bg-dark-200 text-light-100'
-            }`}
-            onClick={() => setAccountType('individual')}
-          >
-            Individual
-            <img src='/icons/individual.png' alt='Individual Icon' className='inline-block w-5 h-5 -mt-1 mx-auto' />
-          </button>
-          <button
-            type="button"
-            className={`flex-1 py-2 rounded-md ${
-              accountType === 'institution' 
-                ? 'bg-primary text-white' 
-                : 'bg-dark-200 text-light-100'
-            }`}
-            onClick={() => setAccountType('institution')}
-          >
-            Institution
-            <img src='/icons/group.png' alt='Institution Icon' className='inline-block w-5 h-5 -mt-1 mx-auto' />
-          </button>
+        {/* User Role Selection */}
+        <div className="space-y-3">
+          <label className="block text-sm font-medium text-light-100">Account Type</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(['investor', 'company', 'auditor'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRole(r)}
+                className={`py-3 px-2 rounded-md text-xs font-medium transition-colors ${
+                  role === r 
+                    ? 'bg-primary text-white' 
+                    : 'bg-dark-200 text-light-100 hover:bg-dark-300'
+                }`}
+              >
+                <div className="capitalize">{r}</div>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-light-100">{roleDescriptions[role]}</p>
         </div>
         
         {error && (
-          <div className="bg-destructive/10 text-destructive p-3 rounded-md">
+          <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
             {error}
           </div>
         )}
@@ -98,7 +107,7 @@ const SignupPage = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md"
+              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="you@example.com"
               required
             />
@@ -113,7 +122,7 @@ const SignupPage = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md"
+              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="••••••••"
               required
             />
@@ -128,7 +137,7 @@ const SignupPage = () => {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md"
+              className="mt-1 block w-full px-3 py-2 bg-dark-200 border border-border rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="••••••••"
               required
             />
@@ -138,7 +147,7 @@ const SignupPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
             >
               {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
