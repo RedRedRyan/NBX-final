@@ -3,15 +3,20 @@ import Link from "next/link"
 import Image from "next/image"
 import { useState } from "react"
 import { useAuth } from "@/lib/context/AuthContext"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 const Sidebar = () => {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
   const [isExpanded, setIsExpanded] = useState(false)
+
   const email = user?.email ?? user?.useremail ?? ""
   const emailInitial = email ? email.charAt(0).toUpperCase() : "U"
   const roleLabel = user?.role ?? user?.accountType ?? "User"
+
+  // Check if user was authenticated via ApiClient (has token in localStorage)
+  const isApiAuth = typeof window !== 'undefined' && localStorage.getItem('authToken')
 
   // Navigation items with icons
   const navItems = [
@@ -21,104 +26,130 @@ const Sidebar = () => {
     { href: "/wallet", label: "Wallet", icon: "/icons/wallet.png" },
   ]
 
+  const handleLogout = () => {
+    // Check if using API authentication
+    if (isApiAuth) {
+      // Remove token from localStorage
+      localStorage.removeItem('authToken')
+      // Redirect to login or home page
+      router.push('/login')
+    } else if (logout) {
+      // Use AuthContext logout if available
+      logout()
+    }
+  }
+
   return (
     <aside
-      className={`group sticky top-0 flex h-screen flex-col bg-sidebar text-sidebar-foreground shadow-xl transition-[width] duration-300 ease-in-out ${
-        isExpanded ? "w-64" : "w-20"
-      }`}
-      onMouseEnter={() => setIsExpanded(true)}
-      onMouseLeave={() => setIsExpanded(false)}
-      onFocusCapture={() => setIsExpanded(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setIsExpanded(false)
-        }
-      }}
+    className={`fixed left-0 top-0 h-screen bg-gray-900 text-white transition-all duration-300 z-50 ${
+      isExpanded ? "w-64" : "w-20"
+    }`}
+    onMouseEnter={() => setIsExpanded(true)}
+    onMouseLeave={() => setIsExpanded(false)}
+    onFocusCapture={() => setIsExpanded(true)}
+    onBlurCapture={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        setIsExpanded(false)
+      }
+    }}
     >
-      {/* Logo */}
-      <div className="flex items-center justify-center px-3 py-6">
+    {/* Logo */}
+    <div className="flex items-center justify-center h-20 border-b border-gray-800">
+    {isExpanded ? (
+      <Link href="/" className="flex items-center space-x-2">
+      <Image
+      src="/icons/logo.png"
+      alt="NBX Logo"
+      width={32}
+      height={32}
+      className="rounded"
+      />
+      <span className="text-xl font-bold">NBX</span>
+      </Link>
+    ) : (
+      <Link href="/">
+      <Image
+      src="/icons/logo.png"
+      alt="NBX Home"
+      width={32}
+      height={32}
+      className="rounded"
+      />
+      </Link>
+    )}
+    </div>
+
+    {/* Navigation */}
+    <nav className="flex-1 py-6 px-3 space-y-2">
+    {navItems.map((item) => {
+      const isActive = pathname === item.href
+      return (
+        <Link
+        key={item.href}
+        href={item.href}
+        className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+          isActive
+          ? "bg-blue-600 text-white"
+          : "text-gray-300 hover:bg-gray-800 hover:text-white"
+        }`}
+        >
+        <Image
+        src={item.icon}
+        alt={item.label}
+        width={24}
+        height={24}
+        className="flex-shrink-0"
+        />
         {isExpanded ? (
-          <Link href="/" className="flex items-center">
-            <Image src="/icons/logo.png" alt="logo" width={48} height={48} className="mr-2" />
-            <p className="text-4xl font-bold">NBX</p>
-          </Link>
+          <span className="font-medium">{item.label}</span>
         ) : (
-          <Link href="/" className="block">
-            <Image src="/icons/logo.png" alt="logo" width={28} height={28} />
-            <span className="sr-only">NBX Home</span>
-          </Link>
+          <span className="sr-only">{item.label}</span>
         )}
+        </Link>
+      )
+    })}
+    </nav>
+
+    {/* User info and logout if logged in */}
+    {user && (
+      <div className="border-t border-gray-800">
+      <div className="p-4">
+      <div className="flex items-center space-x-3">
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-semibold">
+      {emailInitial}
       </div>
-
-      {/* Navigation */}
-      {user ? (
-        <nav className="flex-1 overflow-y-auto px-2 pb-4">
-          <ul className="mt-2 space-y-2" style={{ listStyleType: "none", paddingLeft: 0 }}>
-            {navItems.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`flex items-center justify-center rounded-lg p-3 transition-colors ${
-                      isActive
-                        ? "bg-white text-sidebar-primary font-medium"
-                        : "hover:bg-white/10"
-                    }`}
-                  >
-                    <Image
-                      src={item.icon || "/placeholder.svg"}
-                      alt={item.label}
-                      width={24}
-                      height={24}
-                      className={isExpanded ? "mr-3" : ""}
-                    />
-                    {isExpanded ? (
-                      <span className="whitespace-nowrap">{item.label}</span>
-                    ) : (
-                      <span className="sr-only">{item.label}</span>
-                    )}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
-      ) : (
-        <div className="flex flex-1 flex-col justify-center px-2">
-          <Link
-            href="/auth/login"
-            className="mb-2 flex items-center justify-center rounded-lg p-3 hover:bg-white/10"
-          >
-            <img src="/icons/login.png" alt="login" width={24} height={24} />
-            {isExpanded ? <span className="ml-3">Login</span> : <span className="sr-only">Login</span>}
-          </Link>
-          <Link
-            href="/auth/signup"
-            className="flex items-center justify-center rounded-lg bg-white p-3 font-medium text-sidebar-primary"
-          >
-            <img src="/icons/register.png" alt="register" width={24} height={24} />
-            {isExpanded ? <span className="ml-3">Get Started</span> : <span className="sr-only">Get Started</span>}
-          </Link>
+      {isExpanded && (
+        <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{email}</p>
+        <p className="text-xs text-gray-400 truncate">{roleLabel}</p>
         </div>
       )}
-
-      {/* User info if logged in */}
-      {user && (
-        <div className="border-t border-white/20 p-4">
-          <div className={`flex items-center ${isExpanded ? "justify-start" : "justify-center"}`}>
-            <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-white/20 ${isExpanded ? "mr-3" : ""}`}>
-              <span>{emailInitial}</span>
-            </div>
-            {isExpanded && (
-              <div className="overflow-hidden">
-                <p className="truncate">{email}</p>
-                <p className="text-sm text-white/70">{roleLabel}</p>
-              </div>
-            )}
-          </div>
-        </div>
+      </div>
+      {isExpanded && (
+        <button
+        onClick={handleLogout}
+        className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 transition-colors text-sm font-medium"
+        >
+        <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        >
+        <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+        />
+        </svg>
+        <span>Logout</span>
+        </button>
       )}
+      </div>
+      </div>
+    )}
     </aside>
   )
 }
