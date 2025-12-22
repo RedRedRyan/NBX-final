@@ -4,6 +4,7 @@ import LightRays from "@/components/LightRays";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { AuthProvider } from "@/lib/context/AuthContext";
+import { CompanyProvider } from "@/lib/context/CompanyContext";
 
 const schibstedGrotesk = Schibsted_Grotesk({
   variable: "--font-schibsted-grotesk",
@@ -30,6 +31,7 @@ export default function RootLayout({
         className={`${schibstedGrotesk.variable} ${martianMono.variable} min-h-screen antialiased`}
       >
         <AuthProvider>
+          <CompanyProvider>
           <div className="flex min-h-screen">
             <Sidebar />
             <div className="relative flex-1">
@@ -52,6 +54,7 @@ export default function RootLayout({
               </main>
             </div>
           </div>
+          </CompanyProvider>
         </AuthProvider>
       </body>
     </html>

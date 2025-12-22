@@ -64,8 +64,9 @@ const HomePage = () => {
                     
                 </div>
                  <div className="md:col-span-3">
+                  {/**image mode cover so the image is not cropped when screen */}
                     <div  className="noisy" />
-                    <img src="/images/obzebra.png" alt="grid-img-5" />
+                    <img src="/images/obzebra.png" alt="grid-img-5" style={{ objectFit: "contain" }} />
                     
                 </div>
               {/* 2nd Row */}

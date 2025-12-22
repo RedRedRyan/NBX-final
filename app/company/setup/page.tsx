@@ -35,9 +35,11 @@ const CompanySetupPage = () => {
     }
   }, [user, router]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
@@ -46,12 +48,12 @@ const CompanySetupPage = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     if (e.target.files && e.target.files[0]) {
       if (key === 'otherDocs') {
-        setFiles(prev => ({
+        setFiles((prev) => ({
           ...prev,
           otherDocs: [...(prev.otherDocs || []), ...Array.from(e.target.files || [])],
         }));
       } else {
-        setFiles(prev => ({
+        setFiles((prev) => ({
           ...prev,
           [key]: e.target.files![0],
         }));
@@ -61,12 +63,12 @@ const CompanySetupPage = () => {
 
   const removeFile = (key: string, index?: number) => {
     if (key === 'otherDocs' && index !== undefined) {
-      setFiles(prev => ({
+      setFiles((prev) => ({
         ...prev,
         otherDocs: prev.otherDocs?.filter((_, i) => i !== index),
       }));
     } else {
-      setFiles(prev => ({
+      setFiles((prev) => ({
         ...prev,
         [key]: undefined,
       }));
@@ -78,62 +80,74 @@ const CompanySetupPage = () => {
     setError('');
     setSuccess('');
 
-    if (!token) {
+    if (!token || !user) {
       setError('Not authenticated');
+      return;
+    }
+
+    // Validate required files
+    if (!files.certificateOfIncorporation || !files.cr12 || !files.memArts) {
+      setError('All required incorporation documents must be uploaded');
       return;
     }
 
     try {
       setIsLoading(true);
 
-      // Construct FormData for multipart upload (files + data)
+      // Construct FormData for multipart upload
       const payload = new FormData();
 
-      // Required fields
+      // Add text fields
       payload.append('name', formData.name);
       payload.append('ticker', formData.ticker.toUpperCase());
-      // Maintain same backend schema: symbol = ticker
-      payload.append('symbol', formData.ticker.toUpperCase());
       payload.append('sector', formData.sector);
       payload.append('description', formData.description);
       payload.append('marketCap', formData.marketCap);
       payload.append('price', formData.price || '0');
+      payload.append('useremail', user.useremail); // Use authenticated user's email
 
-      // Default or placeholder values for removed fields (adjust as needed)
-      payload.append('totalSupply', '0');
-      payload.append('circulatingSupply', '0');
-      payload.append('useremail', user?.useremail || '');
+      // Add required files
+      payload.append('certificateOfIncorporation', files.certificateOfIncorporation);
+      payload.append('cr12', files.cr12);
+      payload.append('memArts', files.memArts);
 
-      // Append files
-      if (files.certificateOfIncorporation) {
-        payload.append('certificateOfIncorporation', files.certificateOfIncorporation);
-      }
-      if (files.cr12) {
-        payload.append('cr12', files.cr12);
-      }
-      if (files.memArts) {
-        payload.append('memArts', files.memArts);
-      }
-      if (files.otherDocs) {
+      // Add optional files
+      if (files.otherDocs && files.otherDocs.length > 0) {
         files.otherDocs.forEach((file) => {
           payload.append('otherDocs', file);
         });
       }
 
-      // Note: You may need to update ApiClient.createCompany to support FormData
-      const response = await ApiClient.createCompany(payload, token);
+      // Submit to API
+      const response: any = await ApiClient.createCompany(payload, token);
 
       setSuccess('Company profile created successfully!');
 
+      // Store company ID and redirect
+      const companyId = response.data?._id || response._id;
+      
       setTimeout(() => {
-        router.push(`/company/dashboard/${response._id || response.id}`);
+        if (companyId) {
+          router.push(`/company/dashboard/${companyId}`);
+        } else {
+          router.push('/company/dashboard');
+        }
       }, 1500);
     } catch (err: any) {
+      console.error('Company creation error:', err);
       setError(err.message || 'Failed to create company profile');
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -141,17 +155,21 @@ const CompanySetupPage = () => {
         <div className="bg-dark-200 rounded-lg border border-border p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white">Company Setup</h1>
-            <p className="mt-2 text-light-100">Register your SME on NBX with official incorporation documents</p>
+            <p className="mt-2 text-light-100">
+              Register your SME on NBX with official incorporation documents
+            </p>
           </div>
 
           {error && (
-            <div className="mb-6 bg-destructive/10 text-destructive p-4 rounded-md">
-              {error}
+            <div className="mb-6 bg-destructive/10 text-destructive p-4 rounded-md border border-destructive/20">
+              <p className="font-medium">Error</p>
+              <p className="text-sm mt-1">{error}</p>
             </div>
           )}
           {success && (
-            <div className="mb-6 bg-green-500/10 text-green-500 p-4 rounded-md">
-              {success}
+            <div className="mb-6 bg-green-500/10 text-green-500 p-4 rounded-md border border-green-500/20">
+              <p className="font-medium">Success!</p>
+              <p className="text-sm mt-1">{success}</p>
             </div>
           )}
 
@@ -187,7 +205,9 @@ const CompanySetupPage = () => {
                   placeholder="e.g., TECH"
                   required
                 />
-                <p className="mt-1 text-xs text-light-200">This will also be used as your token symbol</p>
+                <p className="mt-1 text-xs text-light-200">
+                  This will also be used as your token symbol
+                </p>
               </div>
 
               <div>
@@ -247,9 +267,11 @@ const CompanySetupPage = () => {
               </div>
             </div>
 
-            {/* Document Uploads Section - Kenya Companies Act Compliance */}
+            {/* Document Uploads Section */}
             <div className="border-t border-border pt-8">
-              <h2 className="text-xl font-semibold text-white mb-4">Incorporation Documents (Required)</h2>
+              <h2 className="text-xl font-semibold text-white mb-4">
+                Incorporation Documents (Required)
+              </h2>
               <p className="text-sm text-light-200 mb-6">
                 Upload clear scanned copies or PDFs of the following official documents.
               </p>
@@ -267,9 +289,22 @@ const CompanySetupPage = () => {
                     required
                   />
                   {files.certificateOfIncorporation && (
-                    <p className="mt-2 text-sm text-green-400">
-                      ✓ {files.certificateOfIncorporation.name}
-                      <button type="button" onClick={() => removeFile('certificateOfIncorporation')} className="ml-2 text-red-400">Remove</button>
+                    <p className="mt-2 text-sm text-green-400 flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      {files.certificateOfIncorporation.name}
+                      <button
+                        type="button"
+                        onClick={() => removeFile('certificateOfIncorporation')}
+                        className="ml-2 text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
                     </p>
                   )}
                 </div>
@@ -286,9 +321,22 @@ const CompanySetupPage = () => {
                     required
                   />
                   {files.cr12 && (
-                    <p className="mt-2 text-sm text-green-400">
-                      ✓ {files.cr12.name}
-                      <button type="button" onClick={() => removeFile('cr12')} className="ml-2 text-red-400">Remove</button>
+                    <p className="mt-2 text-sm text-green-400 flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      {files.cr12.name}
+                      <button
+                        type="button"
+                        onClick={() => removeFile('cr12')}
+                        className="ml-2 text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
                     </p>
                   )}
                 </div>
@@ -305,9 +353,22 @@ const CompanySetupPage = () => {
                     required
                   />
                   {files.memArts && (
-                    <p className="mt-2 text-sm text-green-400">
-                      ✓ {files.memArts.name}
-                      <button type="button" onClick={() => removeFile('memArts')} className="ml-2 text-red-400">Remove</button>
+                    <p className="mt-2 text-sm text-green-400 flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      {files.memArts.name}
+                      <button
+                        type="button"
+                        onClick={() => removeFile('memArts')}
+                        className="ml-2 text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
                     </p>
                   )}
                 </div>
@@ -316,6 +377,9 @@ const CompanySetupPage = () => {
                   <label className="block text-sm font-medium text-light-100">
                     Additional Documents (Optional)
                   </label>
+                  <p className="text-xs text-light-200 mb-2">
+                    Business license, tax certificates, audited financials, etc.
+                  </p>
                   <input
                     type="file"
                     multiple
@@ -326,9 +390,22 @@ const CompanySetupPage = () => {
                   {files.otherDocs && files.otherDocs.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {files.otherDocs.map((file, i) => (
-                        <p key={i} className="text-sm text-green-400">
-                          ✓ {file.name}
-                          <button type="button" onClick={() => removeFile('otherDocs', i)} className="ml-2 text-red-400">Remove</button>
+                        <p key={i} className="text-sm text-green-400 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          {file.name}
+                          <button
+                            type="button"
+                            onClick={() => removeFile('otherDocs', i)}
+                            className="ml-2 text-red-400 hover:text-red-300"
+                          >
+                            Remove
+                          </button>
                         </p>
                       ))}
                     </div>
@@ -341,14 +418,41 @@ const CompanySetupPage = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 py-3 px-4 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="flex-1 py-3 px-4 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
               >
-                {isLoading ? 'Creating Profile...' : 'Submit Company Profile'}
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Creating Profile...
+                  </span>
+                ) : (
+                  'Submit Company Profile'
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="flex-1 py-3 px-4 bg-dark-100 text-white border border-border rounded-md hover:bg-dark-200 font-medium"
+                disabled={isLoading}
+                className="flex-1 py-3 px-4 bg-dark-100 text-white border border-border rounded-md hover:bg-dark-200 font-medium transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

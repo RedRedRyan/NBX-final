@@ -27,7 +27,7 @@ type AuthContextType = {
   isLoading: boolean;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, role: UserRole) => Promise<void>;
+  signup: (email: string, password: string, role: UserRole, accountId: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 };
@@ -125,7 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signup = async (email: string, password: string, role: UserRole) => {
+  const signup = async (email: string, password: string, role: UserRole, accountId: string) => {
     setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/auth/register`, {
@@ -137,6 +137,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           useremail: email,
           password,
           role,
+          accountId
         }),
       });
 

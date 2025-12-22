@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { ApiClient } from '@/lib/api/client';
+import { createEquityToken } from '@/lib/hedera/atsClient';
 
 const CreateEquityPage = () => {
   const router = useRouter();

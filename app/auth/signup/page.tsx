@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, UserRole } from '@/lib/context/AuthContext';
+import ConnectButton from '@/components/connectButton';
 
 const SignupPage = () => {
   const router = useRouter();
@@ -13,8 +14,17 @@ const SignupPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<UserRole>('investor');
+  const [accountId, setAccountId] = useState(''); // Store wallet account ID
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Callback to receive account ID from ConnectButton
+  const handleAccountConnected = (connectedAccountId: string) => {
+    setAccountId(connectedAccountId);
+    if (connectedAccountId) {
+      setError(''); // Clear any wallet-related errors
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,10 +45,16 @@ const SignupPage = () => {
       setError('Password must be at least 6 characters');
       return;
     }
+
+    // Validate wallet connection
+    if (!accountId) {
+      setError('Please connect your Hedera wallet before creating an account');
+      return;
+    }
     
     try {
       setIsLoading(true);
-      await signup(email, password, role);
+      await signup(email, password, role, accountId); // Pass the connected account ID
       
       // Redirect based on user role
       if (role === 'company') {
@@ -143,10 +159,13 @@ const SignupPage = () => {
             />
           </div>
           
+          {/* Wallet Connection Component */}
+          <ConnectButton onAccountConnected={handleAccountConnected} />
+          
           <div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !accountId}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
             >
               {isLoading ? 'Creating Account...' : 'Create Account'}

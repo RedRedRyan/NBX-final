@@ -9,7 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@hashgraph/asset-tokenization-sdk": "^3.0.0",
+    "@hashgraph/hedera-wallet-connect": "^2.0.4",
+    "@hashgraph/proto": "^2.25.0",
+    "@hashgraph/sdk": "^2.78.0",
     "@tsparticles/react": "^3.0.0",
+    "@walletconnect/modal": "^2.7.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
