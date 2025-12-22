@@ -5,6 +5,8 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { AuthProvider } from "@/lib/context/AuthContext";
 import { CompanyProvider } from "@/lib/context/CompanyContext";
+import { Wallet } from "lucide-react";
+import { WalletProvider } from "@/lib/context/WalletContext";
 
 const schibstedGrotesk = Schibsted_Grotesk({
   variable: "--font-schibsted-grotesk",
@@ -32,6 +34,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <CompanyProvider>
+            <WalletProvider>
           <div className="flex min-h-screen">
             <Sidebar />
             <div className="relative flex-1">
@@ -54,6 +57,7 @@ export default function RootLayout({
               </main>
             </div>
           </div>
+          </WalletProvider>
           </CompanyProvider>
         </AuthProvider>
       </body>
