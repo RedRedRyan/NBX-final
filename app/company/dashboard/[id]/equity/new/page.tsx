@@ -75,65 +75,89 @@ const CreateEquityPage = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  console.log("🟢 handleSubmit triggered");
+  setError('');
+  setSuccess('');
 
-    if (!token || !user || !currentCompany || !isConnected || !account) {
-      setError('Missing required data or wallet not connected');
-      return;
+  // Log all critical state before doing anything
+  console.log("Auth state:", { user, token });
+  console.log("Company state:", currentCompany);
+  console.log("Wallet state:", { isConnected, account });
+  console.log("Form data:", formData);
+
+  if (!token || !user || !currentCompany || !isConnected || !account) {
+    console.error("❌ Missing required data:", {
+      hasToken: !!token,
+      hasUser: !!user,
+      hasCompany: !!currentCompany,
+      walletConnected: isConnected,
+      hasAccount: !!account,
+    });
+    setError('Missing required data or wallet not connected');
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+    setStep('deploying');
+    setSuccess('Deploying equity token on Hedera...');
+
+    // Prepare params
+    const deployParams: CreateEquityParams = {
+      name: formData.name,
+      symbol: formData.symbol,
+      numberOfShares: formData.numberOfShares,
+      denomination: formData.denomination,
+      regulationType: formData.regulationType,
+      regulationSubType: formData.regulationSubType,
+      dealType: formData.dealType as DealType,
+      dividendYield: parseFloat(formData.dividendYield) || 0,
+      votingRights: formData.votingRights,
+      companyName: currentCompany.name,
+      companyAccountId: account.accountId,
+      kycProviderAddress: '',
+      pauseAddress: '',
+    };
+
+    console.log("🧩 Deploy params prepared:", deployParams);
+    console.log("🔗 Calling deployEquityOnServer with:", {
+      companyId,
+      tokenLength: token?.length,
+    });
+
+    // Server action call
+    const result = await deployEquityOnServer(deployParams, token, companyId);
+    console.log("✅ Server action result:", result);
+
+    if (!result.success) {
+      console.error("❌ Deployment failed:", result.error || result);
+      throw new Error(result.error || 'Failed to deploy equity');
     }
 
-    try {
-      setIsLoading(true);
-      setStep('deploying');
-      setSuccess('Deploying equity token on Hedera...');
+    setSuccess(`Equity deployed! Asset Address: ${result.assetAddress}`);
+    console.log("🎉 Equity successfully deployed!");
 
-      // Prepare equity deployment params
-      const deployParams: CreateEquityParams = {
-        name: formData.name,
-        symbol: formData.symbol,
-        numberOfShares: formData.numberOfShares,
-        denomination: formData.denomination,
-        regulationType: formData.regulationType,
-        regulationSubType: formData.regulationSubType,
-        dealType: formData.dealType as DealType,
-        dividendYield: parseFloat(formData.dividendYield) || 0,
-        votingRights: formData.votingRights,
-        companyName: currentCompany.name,
-        companyAccountId: account.accountId,
-        kycProviderAddress: '', // Add if you have KYC provider address
-        pauseAddress: '', // Add if you have pause address
-      };
+    setStep('complete');
+    setSuccess('Equity token created successfully!');
 
-      setSuccess('Processing your request...');
+    // Optional: log redirect
+    console.log("🔁 Redirecting to dashboard in 2s...");
+    setTimeout(() => {
+      router.push(`/company/dashboard/${companyId}`);
+    }, 2000);
 
-      // Call server action for deployment
-      const result = await deployEquityOnServer(deployParams, token, companyId);
+  } catch (err: any) {
+    console.error("🔥 Equity creation error:", err);
+    setError(err.message || 'Failed to create equity');
+    setStep('form');
+  } finally {
+    setIsLoading(false);
+    console.log("🧹 handleSubmit finished");
+  }
+};
 
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to deploy equity');
-      }
-
-      setSuccess(`Equity deployed! Asset Address: ${result.assetAddress}`);
-
-      // The server action already saved to backend, so no need for separate API call
-
-      setStep('complete');
-      setSuccess('Equity token created successfully!');
-
-      setTimeout(() => {
-        router.push(`/company/dashboard/${companyId}`);
-      }, 2000);
-    } catch (err: any) {
-      console.error('Equity creation error:', err);
-      setError(err.message || 'Failed to create equity');
-      setStep('form');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   if (!currentCompany) {
     return (

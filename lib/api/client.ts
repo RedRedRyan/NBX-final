@@ -1,5 +1,86 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+export interface InitializePaymentDto {
+  token: 'KESy_TESTNET';
+  amount: number;
+  email: string;
+  currency: 'KES';
+  metadata: {
+    orderID: string;
+  };
+  callback_url?: string;
+  channels?: string[];
+  crypto_account?: string;
+}
+
+export interface PaymentResponse {
+  success: boolean;
+  reference: string;
+  authorization_url: string;
+  access_code: string;
+  orderID: string;
+}
+
+export interface Transaction {
+  reference: string;
+  orderID: string;
+  email: string;
+  amount: number;
+  currency: string;
+  token: string;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  authorizationUrl: string;
+  cryptoAccount?: string;
+  channels?: string[];
+  callbackUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+}
+
+export interface TransactionsResponse {
+  success: boolean;
+  payments: Transaction[];
+  total: number;
+  limit: number;
+  skip: number;
+  hasMore: boolean;
+}
+
+export interface PaymentDetailsResponse {
+  success: boolean;
+  payment: Transaction;
+}
+
+export interface VerifyPaymentResponse {
+  success: boolean;
+  reference: string;
+  verified: boolean;
+  status: 'SUCCESS' | 'NOT_COMPLETED';
+}
+
+export interface PaymentStats {
+  totalPayments: number;
+  successfulPayments: number;
+  pendingPayments: number;
+  failedPayments: number;
+  totalAmountSpent: number;
+  currency: string;
+  recentPayments: number;
+  successRate: string;
+  lastSuccessfulPayment: {
+    amount: number;
+    currency: string;
+    date: string;
+  } | null;
+}
+
+export interface StatsResponse {
+  success: boolean;
+  stats: PaymentStats;
+}
+
 export interface ApiResponse<T> {
   data?: T;
   message?: string;
@@ -159,4 +240,141 @@ export class ApiClient {
       token,
     });
   }
+  /**
+   * Initialize a payment with Orion Ramp
+   * @param data - Payment initialization data
+   * @param token - JWT authentication token
+   * @returns Payment response with authorization URL
+   * 
+   * Example:
+   * const payment = await ApiClient.initializeOnramp({
+   *   token: 'KESy_TESTNET',
+   *   amount: 1000,
+   *   email: 'user@example.com',
+   *   currency: 'KES',
+   *   metadata: { orderID: generateUUID() }
+   * }, userToken);
+   * 
+   * // Redirect user to payment page
+   * window.location.href = payment.authorization_url;
+   */
+  static async initializeOnramp(
+    data: InitializePaymentDto,
+    token: string
+  ): Promise<PaymentResponse> {
+    return this.request<PaymentResponse>('/onramp/initialize', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      token,
+    });
+  }
+
+  /**
+   * Get all transactions for the authenticated user
+   * @param token - JWT authentication token
+   * @param limit - Number of records to return (default: 50, max: 100)
+   * @param skip - Number of records to skip for pagination (default: 0)
+   * @returns List of user transactions
+   * 
+   * Example:
+   * const { payments, total, hasMore } = await ApiClient.getUserTransactions(token, 10, 0);
+   */
+  static async getUserTransactions(
+    token: string,
+    limit = 50,
+    skip = 0
+  ): Promise<TransactionsResponse> {
+    const params = new URLSearchParams({
+      limit: Math.min(limit, 100).toString(),
+      skip: skip.toString(),
+    });
+    
+    return this.request<TransactionsResponse>(
+      `/onramp/transactions?${params.toString()}`,
+      { token }
+    );
+  }
+
+  /**
+   * Get transaction details by reference ID
+   * @param reference - Payment reference ID
+   * @param token - JWT authentication token
+   * @returns Transaction details
+   * 
+   * Example:
+   * const { payment } = await ApiClient.getTransactionByReference('ref_abc123', token);
+   */
+  static async getTransactionByReference(
+    reference: string,
+    token: string
+  ): Promise<PaymentDetailsResponse> {
+    return this.request<PaymentDetailsResponse>(
+      `/onramp/transaction/reference/${reference}`,
+      { token }
+    );
+  }
+
+  /**
+   * Get transaction details by order ID
+   * @param orderID - Order ID from metadata
+   * @param token - JWT authentication token
+   * @returns Transaction details
+   * 
+   * Example:
+   * const { payment } = await ApiClient.getTransactionByOrderId('uuid-123', token);
+   */
+  static async getTransactionByOrderId(
+    orderID: string,
+    token: string
+  ): Promise<PaymentDetailsResponse> {
+    return this.request<PaymentDetailsResponse>(
+      `/onramp/transaction/order/${orderID}`,
+      { token }
+    );
+  }
+
+  /**
+   * Verify if a transaction is completed successfully
+   * @param reference - Payment reference ID
+   * @param token - JWT authentication token
+   * @returns Verification status
+   * 
+   * Example:
+   * const { verified } = await ApiClient.verifyTransaction('ref_abc123', token);
+   * if (verified) {
+   *   console.log('Payment successful!');
+   * }
+   */
+  static async verifyTransaction(
+    reference: string,
+    token: string
+  ): Promise<VerifyPaymentResponse> {
+    return this.request<VerifyPaymentResponse>(
+      `/onramp/transaction/${reference}/verify`,
+      { token }
+    );
+  }
+
+  /**
+   * Get payment statistics for the authenticated user
+   * @param token - JWT authentication token
+   * @returns User payment statistics
+   * 
+   * Example:
+   * const { stats } = await ApiClient.getUserPaymentStats(token);
+   * console.log(`Success rate: ${stats.successRate}%`);
+   */
+  static async getUserPaymentStats(token: string): Promise<StatsResponse> {
+    return this.request<StatsResponse>('/onramp/stats', { token });
+  }
+
+  /**
+   * Check onramp service health
+   * @returns Health status
+   * 
+   * Example:
+   * const health = await ApiClient.checkOnrampHealth();
+   * console.log(health.status); // 'ok'
+   */
+
 }
