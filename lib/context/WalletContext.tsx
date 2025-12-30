@@ -34,32 +34,82 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [session, setSession] = useState<SessionTypes.Struct | null>(null);
-  const [account, setAccount] = useState<WalletAccount | null>(null); // ✅ added
+  const [account, setAccount] = useState<WalletAccount | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load existing session
+  // Helper function to handle session update
+  const handleSessionUpdate = (newSession: SessionTypes.Struct) => {
+    setSession(newSession);
+    const accountId = newSession.namespaces?.hedera?.accounts?.[0];
+    if (accountId) {
+      // Parse the account ID - format is typically "hedera:testnet:0.0.12345"
+      const parsedAccountId = accountId.includes(':')
+        ? accountId.split(':').pop()
+        : accountId;
+      setAccount({ accountId: parsedAccountId || accountId });
+      setIsConnected(true);
+    }
+  };
+
+  // Initialize the dAppConnector on mount
   useEffect(() => {
-    const loadExistingSession = async () => {
+    const initConnector = async () => {
       try {
-        if (!dAppConnector.walletConnectClient) return;
-        const activeSessions = Object.values(
-          dAppConnector.walletConnectClient.session.getAll()
-        );
-        if (activeSessions.length > 0) {
-          const activeSession = activeSessions[0];
-          setSession(activeSession);
-          const accountId = activeSession.namespaces?.hedera?.accounts?.[0];
-          if (accountId) {
-            setAccount({ accountId });
-            setIsConnected(true);
+        // Only initialize in browser environment
+        if (typeof window === 'undefined') return;
+
+        // Check if already initialized
+        if ((dAppConnector as any).walletConnectClient) {
+          setIsInitialized(true);
+          return;
+        }
+
+        // Initialize the connector
+        await dAppConnector.init();
+        setIsInitialized(true);
+        console.log("DAppConnector initialized successfully");
+
+        // Set up event listeners for session changes
+        const client = (dAppConnector as any).walletConnectClient;
+        if (client) {
+          // Listen for session events
+          client.on('session_event', (event: any) => {
+            console.log('Session event:', event);
+          });
+
+          client.on('session_update', ({ topic, params }: any) => {
+            console.log('Session update:', topic, params);
+            const updatedSession = client.session.get(topic);
+            if (updatedSession) {
+              handleSessionUpdate(updatedSession);
+            }
+          });
+
+          client.on('session_delete', () => {
+            console.log('Session deleted');
+            setSession(null);
+            setAccount(null);
+            setIsConnected(false);
+          });
+
+          // Check for existing sessions after init
+          if (client.session) {
+            const activeSessions = client.session.getAll();
+            const sessionValues = Object.values(activeSessions) as SessionTypes.Struct[];
+            if (sessionValues.length > 0) {
+              handleSessionUpdate(sessionValues[0]);
+            }
           }
         }
       } catch (err) {
-        console.error("Error loading existing session:", err);
+        console.error("Error initializing DAppConnector:", err);
+        setError("Failed to initialize wallet connection");
       }
     };
-    loadExistingSession();
+
+    initConnector();
   }, []);
 
   const connect = async () => {
@@ -67,17 +117,41 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
       setLoading(true);
       setError(null);
 
-      const newSession = await dAppConnector.connect((uri: string) => {
-        console.log("WalletConnect URI:", uri);
-      });
+      // Ensure connector is initialized
+      if (!isInitialized) {
+        await dAppConnector.init();
+        setIsInitialized(true);
+      }
 
-      setSession(newSession);
-      const accountId = newSession.namespaces?.hedera?.accounts?.[0];
-      if (accountId) setAccount({ accountId });
-      setIsConnected(true);
+      // Use openModal() to show the WalletConnect modal with QR code
+      // This allows users to scan QR code or select wallet extension
+      await dAppConnector.openModal();
+
+      // After modal interaction, check for new sessions
+      const client = (dAppConnector as any).walletConnectClient;
+      if (client?.session) {
+        const activeSessions = client.session.getAll();
+        const sessionValues = Object.values(activeSessions) as SessionTypes.Struct[];
+        if (sessionValues.length > 0) {
+          const activeSession = sessionValues[0];
+          setSession(activeSession);
+          const accountId = activeSession.namespaces?.hedera?.accounts?.[0];
+          if (accountId) {
+            // Parse the account ID - format is typically "hedera:testnet:0.0.12345"
+            const parsedAccountId = accountId.includes(':')
+              ? accountId.split(':').pop()
+              : accountId;
+            setAccount({ accountId: parsedAccountId || accountId });
+            setIsConnected(true);
+          }
+        }
+      }
     } catch (err: any) {
       console.error("Wallet connection error:", err);
-      setError(err.message || "Failed to connect wallet");
+      // Don't show error if user just closed the modal
+      if (err.message !== 'User rejected' && err.message !== 'Modal closed by user') {
+        setError(err.message || "Failed to connect wallet");
+      }
     } finally {
       setLoading(false);
     }

@@ -88,13 +88,13 @@ const HomePage = () => {
                 {companyId ? (
                   <>
                     <a
-                      href={`/companies/${companyId}/dashboard`}
+                      href={`/company/dashboard/${companyId}`}
                       className="bg-accent-foreground badge"
                     >
                       Dashboard
                     </a>
                     <a
-                      href={`/companies/${companyId}/equity`}
+                      href={`/company/dashboard/${companyId}/equity/new`}
                       className="badge"
                     >
                       Issue Securities
@@ -198,9 +198,8 @@ const HomePage = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-black">{company.symbol}</span>
                   <span
-                    className={`text-sm ${
-                      company.change24h >= 0 ? "text-green-500" : "text-red-500"
-                    }`}
+                    className={`text-sm ${company.change24h >= 0 ? "text-green-500" : "text-red-500"
+                      }`}
                   >
                     {company.change24h >= 0 ? "+" : ""}
                     {company.change24h}%

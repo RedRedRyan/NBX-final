@@ -5,16 +5,15 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useWallet } from '@/lib/context/WalletContext';
 import { useCompany } from '@/lib/context/CompanyContext';
-import { deployEquityOnServer } from '@/app/actions/CreateEquity';
-import { ApiClient } from '@/lib/api/client';
-import { CreateEquityParams ,DealType} from '@/lib/hedera/types';
+import { useCreateEquity } from '@/hooks/useCreateEquity';
+import type { CreateEquityParams } from '@/lib/hedera/ATSService';
 import ConnectButton from '@/components/connectButton';
 
 const CreateEquityPage = () => {
   const router = useRouter();
   const params = useParams();
-  const { user, token } = useAuth();
-  const { currentCompany, fetchCompanyById } = useCompany();
+  const { user, token, isLoading: authLoading } = useAuth();
+  const { currentCompany, fetchCompanyById, isLoading: companyLoading } = useCompany();
   const { connect, disconnect, isConnected, account } = useWallet();
 
   const companyId = params.id as string;
@@ -33,15 +32,32 @@ const CreateEquityPage = () => {
     votingRights: false,
     regulationType: 'REG_D' as 'REG_D' | 'REG_S' | 'REG_CF',
     regulationSubType: '506-B',
-    dealType: 'PRIMARY_ISSUANCE' as DealType,
   });
 
-  // Fetch company on mount
+  // Use the client-side equity creation hook
+  const { createEquity, isLoading: isCreating } = useCreateEquity({
+    companyId,
+    onSuccess: (result) => {
+      console.log('🎉 Equity created successfully:', result);
+      setSuccess(`Equity deployed! Asset Address: ${result.assetAddress}`);
+      setStep('complete');
+      setTimeout(() => {
+        router.push(`/company/dashboard/${companyId}`);
+      }, 2000);
+    },
+    onError: (err) => {
+      console.error('🔥 Equity creation error:', err);
+      setError(err);
+      setStep('form');
+    },
+  });
+
+  // Fetch company on mount - wait for token to be available
   useEffect(() => {
-    if (companyId) {
+    if (companyId && token) {
       fetchCompanyById(companyId);
     }
-  }, [companyId]);
+  }, [companyId, token]);
 
   // Auto-advance to form if already connected
   useEffect(() => {
@@ -75,94 +91,96 @@ const CreateEquityPage = () => {
     }
   };
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  console.log("🟢 handleSubmit triggered");
-  setError('');
-  setSuccess('');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('🟢 handleSubmit triggered');
+    setError('');
+    setSuccess('');
 
-  // Log all critical state before doing anything
-  console.log("Auth state:", { user, token });
-  console.log("Company state:", currentCompany);
-  console.log("Wallet state:", { isConnected, account });
-  console.log("Form data:", formData);
+    // Log all critical state before doing anything
+    console.log('Auth state:', { user, token });
+    console.log('Company state:', currentCompany);
+    console.log('Wallet state:', { isConnected, account });
+    console.log('Form data:', formData);
 
-  if (!token || !user || !currentCompany || !isConnected || !account) {
-    console.error("❌ Missing required data:", {
-      hasToken: !!token,
-      hasUser: !!user,
-      hasCompany: !!currentCompany,
-      walletConnected: isConnected,
-      hasAccount: !!account,
-    });
-    setError('Missing required data or wallet not connected');
-    return;
-  }
-
-  try {
-    setIsLoading(true);
-    setStep('deploying');
-    setSuccess('Deploying equity token on Hedera...');
-
-    // Prepare params
-    const deployParams: CreateEquityParams = {
-      name: formData.name,
-      symbol: formData.symbol,
-      numberOfShares: formData.numberOfShares,
-      denomination: formData.denomination,
-      regulationType: formData.regulationType,
-      regulationSubType: formData.regulationSubType,
-      dealType: formData.dealType as DealType,
-      dividendYield: parseFloat(formData.dividendYield) || 0,
-      votingRights: formData.votingRights,
-      companyName: currentCompany.name,
-      companyAccountId: account.accountId,
-      kycProviderAddress: '',
-      pauseAddress: '',
-    };
-
-    console.log("🧩 Deploy params prepared:", deployParams);
-    console.log("🔗 Calling deployEquityOnServer with:", {
-      companyId,
-      tokenLength: token?.length,
-    });
-
-    // Server action call
-    const result = await deployEquityOnServer(deployParams, token, companyId);
-    console.log("✅ Server action result:", result);
-
-    if (!result.success) {
-      console.error("❌ Deployment failed:", result.error || result);
-      throw new Error(result.error || 'Failed to deploy equity');
+    if (!currentCompany || !account) {
+      console.error('❌ Missing required data:', {
+        hasCompany: !!currentCompany,
+        hasAccount: !!account,
+      });
+      setError('Missing company data or wallet not connected');
+      return;
     }
 
-    setSuccess(`Equity deployed! Asset Address: ${result.assetAddress}`);
-    console.log("🎉 Equity successfully deployed!");
+    try {
+      setIsLoading(true);
+      setStep('deploying');
+      setSuccess('Deploying equity token on Hedera... Please sign the transaction in your wallet.');
 
-    setStep('complete');
-    setSuccess('Equity token created successfully!');
+      // Prepare params for client-side SDK
+      const deployParams: CreateEquityParams = {
+        name: formData.name,
+        symbol: formData.symbol,
+        numberOfShares: formData.numberOfShares,
+        denomination: formData.denomination,
+        regulationType: formData.regulationType,
+        regulationSubType: formData.regulationSubType,
+        dividendYield: parseFloat(formData.dividendYield) || 0,
+        votingRights: formData.votingRights,
+        companyName: currentCompany.name,
+        companyAccountId: account.accountId,
+        kycProviderAddress: '',
+        pauseAddress: '',
+      };
 
-    // Optional: log redirect
-    console.log("🔁 Redirecting to dashboard in 2s...");
-    setTimeout(() => {
-      router.push(`/company/dashboard/${companyId}`);
-    }, 2000);
+      console.log('🧩 Deploy params prepared:', deployParams);
 
-  } catch (err: any) {
-    console.error("🔥 Equity creation error:", err);
-    setError(err.message || 'Failed to create equity');
-    setStep('form');
-  } finally {
-    setIsLoading(false);
-    console.log("🧹 handleSubmit finished");
-  }
-};
+      // Call the client-side SDK (this will prompt wallet signing)
+      await createEquity(deployParams);
+
+    } catch (err: any) {
+      console.error('🔥 Equity creation error:', err);
+      setError(err.message || 'Failed to create equity');
+      setStep('form');
+    } finally {
+      setIsLoading(false);
+      console.log('🧹 handleSubmit finished');
+    }
+  };
 
 
-  if (!currentCompany) {
+  // Show loading while auth is being checked or company is being fetched
+  if (authLoading || (companyLoading && !currentCompany)) {
     return (
       <div className="min-h-screen bg-dark-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-light-100">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if no token (not logged in)
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-light-100 mb-4">Please log in to access this page</p>
+          <a href="/auth/login" className="text-primary hover:underline">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if company not found
+  if (!currentCompany && !companyLoading) {
+    return (
+      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-light-100 mb-4">Company not found</p>
+          <a href="/" className="text-primary hover:underline">Go Home</a>
+        </div>
       </div>
     );
   }
@@ -175,7 +193,7 @@ const CreateEquityPage = () => {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white">Create Equity Token</h1>
             <p className="mt-2 text-light-100">
-              Issue ERC-1400 compliant equity tokens for {currentCompany.name}
+              Issue ERC-1400 compliant equity tokens for {currentCompany?.name}
             </p>
             <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
               <div className="flex items-start space-x-3">
@@ -208,8 +226,8 @@ const CreateEquityPage = () => {
                 Connect HashPack or Blade wallet to deploy equity tokens
               </p>
 
-             <ConnectButton onAccountConnected={() => {setStep("form")}} />
-             <p className="mt-6 text-sm text-light-200">
+              <ConnectButton onAccountConnected={() => { setStep("form") }} />
+              <p className="mt-6 text-sm text-light-200">
                 Don't have a wallet?{' '}
                 <a href="https://www.hashpack.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                   Get HashPack
@@ -264,7 +282,7 @@ const CreateEquityPage = () => {
               {/* Basic Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">Basic Information</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-light-100 mb-1">
@@ -342,7 +360,7 @@ const CreateEquityPage = () => {
               {/* Regulation */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">Regulatory Compliance</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="regulationType" className="block text-sm font-medium text-light-100 mb-1">
@@ -387,7 +405,7 @@ const CreateEquityPage = () => {
               {/* Corporate Actions */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">Corporate Actions</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="dividendYield" className="block text-sm font-medium text-light-100 mb-1">

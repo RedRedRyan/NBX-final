@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export interface InitializePaymentDto {
   token: 'KESy_TESTNET';
@@ -115,7 +115,7 @@ export class ApiClient {
     try {
       // Build headers properly
       const headers = this.getHeaders(token, isFormData);
-      
+
       const response = await fetch(url, {
         ...fetchOptions,
         headers,
@@ -170,7 +170,7 @@ export class ApiClient {
       limit: limit.toString(),
     });
     if (sector) params.append('sector', sector);
-    
+
     return this.request(`/companies?${params.toString()}`, { token });
   }
 
@@ -288,7 +288,7 @@ export class ApiClient {
       limit: Math.min(limit, 100).toString(),
       skip: skip.toString(),
     });
-    
+
     return this.request<TransactionsResponse>(
       `/onramp/transactions?${params.toString()}`,
       { token }
@@ -367,14 +367,5 @@ export class ApiClient {
   static async getUserPaymentStats(token: string): Promise<StatsResponse> {
     return this.request<StatsResponse>('/onramp/stats', { token });
   }
-
-  /**
-   * Check onramp service health
-   * @returns Health status
-   * 
-   * Example:
-   * const health = await ApiClient.checkOnrampHealth();
-   * console.log(health.status); // 'ok'
-   */
 
 }
