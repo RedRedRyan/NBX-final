@@ -1,7 +1,4 @@
 // lib/hedera/ATSService.ts
-// Client-side Asset Tokenization SDK service
-// This runs entirely in the browser with wallet signing
-
 "use client";
 
 import {
@@ -18,6 +15,7 @@ import {
     type WalletEvent,
     type SecurityViewModel,
 } from '@hashgraph/asset-tokenization-sdk';
+import type { SignAndExecuteTransactionParams, SignAndExecuteTransactionResult } from '@hashgraph/hedera-wallet-connect';
 
 // Configuration from environment
 const getATSConfig = () => ({
@@ -49,8 +47,10 @@ export interface ATSWalletState {
 export interface CreateEquityParams {
     name: string;
     symbol: string;
+    isin: string;
     numberOfShares: string;
     denomination: string;
+    denominationValue?: string; // e.g. "1.00"
     regulationType: 'REG_D' | 'REG_S' | 'REG_CF';
     regulationSubType?: string;
     dealType?: string;
@@ -89,11 +89,16 @@ class ATSServiceClass {
     private config = getATSConfig();
 
     /**
-     * Initialize the SDK (without wallet connection)
      * This sets up network configuration
      */
     async init(events?: Partial<WalletEvent>): Promise<void> {
-        if (this.isInitialized) return;
+        if (this.isInitialized) {
+            // If already initialized, we can't easily re-bind events in the current SDK design 
+            // without re-initializing or having a setter. 
+            // For now, we assume init is called once by WalletContext.
+            console.log('[ATS] SDK already initialized');
+            return;
+        }
 
         try {
             const initRequest = new InitializationRequest({
@@ -106,34 +111,6 @@ class ATSServiceClass {
                 },
                 events: events || {},
             });
-
-            // Improved mock for Metamask to satisfy stricter SDK checks
-            if (typeof window !== 'undefined' && !(window as any).ethereum) {
-                console.log('[ATS] Injecting enhanced mock Metamask provider');
-                const mockProvider = {
-                    isMetaMask: true,
-                    isConnected: () => true,
-                    request: async (args: any) => {
-                        console.log('[ATS] Mock Metamask request:', args.method);
-                        switch (args.method) {
-                            case 'eth_accounts':
-                                return []; // No accounts connected yet
-                            case 'eth_chainId':
-                                return '0x12a'; // Hedera Testnet (298)
-                            default:
-                                return null;
-                        }
-                    },
-                    on: (event: string, callback: any) => {
-                        console.log('[ATS] Mock Metamask event listener added:', event);
-                    },
-                    removeListener: () => { },
-                    _metamask: {
-                        isUnlocked: async () => true
-                    }
-                };
-                (window as any).ethereum = mockProvider;
-            }
 
             await Network.init(initRequest);
             this.isInitialized = true;
@@ -223,63 +200,70 @@ class ATSServiceClass {
 
     /**
      * Create an equity token
-     * This will prompt the user to sign the transaction in their wallet
      */
     async createEquity(params: CreateEquityParams): Promise<SecurityResult> {
-        // Ensure SDK is initialized
         if (!this.isInitialized) {
             await this.init();
         }
 
         try {
             const regulationType = this.getRegulationTypeNumber(params.regulationType);
+            const regulationSubType = this.getRegulationSubTypeNumber(params.regulationSubType);
+
+            // Ensure we have a connected account to set as owner
+            const owner = this.initData?.account?.id?.value;
+            if (!owner) {
+                throw new Error("Wallet not connected. Cannot determine Diamond Owner.");
+            }
+
+            const ownerEvmAddress = this.hederaIdToEvmAddress(owner);
+            const currencyBytes3 = this.stringToBytes3(params.denomination || 'USD');
+            const zeroBytes32 = '0x' + '0'.repeat(64);
+            const zeroAddress = '0x' + '0'.repeat(40);
 
             const request = new CreateEquityRequest({
                 name: params.name,
                 symbol: params.symbol,
-                isin: '',
-                decimals: 18,
+                isin: params.isin || 'US0000000000',
+                decimals: 0,
                 isWhiteList: false,
-                erc20VotesActivated: false,
+                erc20VotesActivated: true,
                 isControllable: true,
                 arePartitionsProtected: false,
                 clearingActive: false,
                 internalKycActivated: true,
                 isMultiPartition: false,
                 votingRight: params.votingRights,
-                informationRight: false,
-                liquidationRight: false,
-                subscriptionRight: false,
+                informationRight: true,
+                liquidationRight: true,
+                subscriptionRight: true,
                 conversionRight: false,
                 redemptionRight: false,
                 putRight: false,
-                dividendRight: params.dividendYield || 0,
-                currency: 'KES',
+                dividendRight: 1,
+                currency: currencyBytes3,
                 numberOfShares: params.numberOfShares,
-                nominalValue: params.denomination,
+                nominalValue: params.denominationValue || '1',
                 nominalValueDecimals: 2,
                 regulationType,
-                regulationSubType: 0,
+                regulationSubType,
                 isCountryControlListWhiteList: false,
                 countries: '',
                 info: JSON.stringify({
                     companyName: params.companyName,
                     companyAccountId: params.companyAccountId,
                 }),
-                configId: '',
+                configId: zeroBytes32,
                 configVersion: 1,
-                externalPausesIds: params.pauseAddress ? [params.pauseAddress] : undefined,
-                externalKycListsIds: params.kycProviderAddress ? [params.kycProviderAddress] : undefined,
-                complianceId: '',
-                identityRegistryId: '',
-                diamondOwnerAccount: '',
+                externalPausesIds: params.pauseAddress ? [params.pauseAddress] : [],
+                externalKycListsIds: params.kycProviderAddress ? [params.kycProviderAddress] : [],
+                complianceId: zeroAddress,
+                identityRegistryId: zeroAddress,
+                diamondOwnerAccount: ownerEvmAddress,
             });
 
             console.log('[ATS] Creating equity with request:', request);
-
-            // This call prompts the connected wallet for signing
             const result = await Equity.create(request);
-
             console.log('[ATS] Equity created successfully:', result);
 
             return {
@@ -297,12 +281,43 @@ class ATSServiceClass {
         }
     }
 
+    private stringToBytes3(str: string): string {
+        let n: number;
+        if (str.length !== 3) {
+            // Fallback or pad/truncate
+            // If shorter than 3, pad with nulls? Or just take first 3 chars. 
+            // Simplest: just take first 3 chars.
+            str = str.substring(0, 3).padEnd(3, '\0');
+        }
+
+        let hex = '0x';
+        for (let i = 0; i < str.length; i++) {
+            hex += str.charCodeAt(i).toString(16);
+        }
+        return hex;
+    }
+
+    private hederaIdToEvmAddress(hederaId: string): string {
+        // Simple conversion for 0.0.x to 0x0...x
+        // Assumes format x.y.z
+        try {
+            const parts = hederaId.split('.');
+            if (parts.length === 3) {
+                const num = parseInt(parts[2], 10);
+                const hex = num.toString(16);
+                return '0x' + hex.padStart(40, '0');
+            }
+            // If it's already an EVM address or other format, return as is (but SDK expects EVM)
+            return hederaId;
+        } catch (e) {
+            return hederaId;
+        }
+    }
+
     /**
      * Create a bond token
-     * This will prompt the user to sign the transaction in their wallet
      */
     async createBond(params: CreateBondParams): Promise<SecurityResult> {
-        // Ensure SDK is initialized
         if (!this.isInitialized) {
             await this.init();
         }
@@ -333,7 +348,7 @@ class ATSServiceClass {
                 info: JSON.stringify({
                     companyName: params.companyName,
                     companyAccountId: params.companyAccountId,
-                    couponFrequency: 4, // Quarterly
+                    couponFrequency: 4,
                     couponRate: params.couponRate.toString(),
                     firstCouponDate: new Date().toISOString(),
                 }),
@@ -347,10 +362,7 @@ class ATSServiceClass {
             });
 
             console.log('[ATS] Creating bond with request:', request);
-
-            // This call prompts the connected wallet for signing
             const result = await Bond.create(request);
-
             console.log('[ATS] Bond created successfully:', result);
 
             return {
@@ -369,8 +381,22 @@ class ATSServiceClass {
     }
 
     /**
-     * Map regulation type string to number
+     * Sign and execute a generic transaction
+     * Note: This requires access to the underlying connector which might be encapsulated.
+     * We will attempt to use the Network's connected state.
      */
+    async signAndExecuteTransaction(transaction: Uint8Array | string): Promise<string> {
+        // TODO: The Asset Tokenization SDK might not expose a direct generic signer.
+        // typically SDKs wrap the connector. 
+        // We will try to find a way, but for now we might have to rely on the specific methods.
+        // If the user's dApp needs generic signing (e.g. for simple transfers not covered by ATS),
+        // we might need to expose the connector from the SDK if possible or use a workaround.
+
+        // For the immediate fix of "Registry" error, we focus on connection.
+        console.warn('[ATS] Generic signAndExecuteTransaction requested but implementation depends on SDK exposure.');
+        throw new Error("Generic signing is not currently supported via ATSService wrapper. Use specific ATS methods.");
+    }
+
     private getRegulationTypeNumber(regulationType: string): number {
         switch (regulationType) {
             case 'REG_D': return 1;
@@ -379,8 +405,16 @@ class ATSServiceClass {
             default: return 1;
         }
     }
+
+    private getRegulationSubTypeNumber(subType?: string): number {
+        if (!subType) return 0;
+        switch (subType) {
+            case '506-B': return 1;
+            case '506-C': return 2;
+            default: return 0;
+        }
+    }
 }
 
-// Singleton instance
 export const ATSService = new ATSServiceClass();
 export default ATSService;

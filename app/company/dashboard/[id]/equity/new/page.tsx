@@ -9,520 +9,489 @@ import { useCreateEquity } from '@/hooks/useCreateEquity';
 import type { CreateEquityParams } from '@/lib/hedera/ATSService';
 import ConnectButton from '@/components/connectButton';
 
+const STEPS = [
+  { id: 1, name: 'Create Equity' },
+  { id: 2, name: 'Specific details' },
+  { id: 3, name: 'External Lists' },
+  { id: 4, name: 'ERC3643' },
+  { id: 5, name: 'Regulation' },
+  { id: 6, name: 'Review' },
+];
+
 const CreateEquityPage = () => {
   const router = useRouter();
   const params = useParams();
   const { user, token, isLoading: authLoading } = useAuth();
   const { currentCompany, fetchCompanyById, isLoading: companyLoading } = useCompany();
-  const { connect, disconnect, isConnected, account } = useWallet();
+  const { isConnected, account } = useWallet();
 
   const companyId = params.id as string;
+  const [currentStep, setCurrentStep] = useState(1);
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [step, setStep] = useState<'connect' | 'form' | 'deploying' | 'complete'>('connect');
-
+  // Form State
   const [formData, setFormData] = useState({
+    // Step 1: General
     name: '',
     symbol: '',
+    decimals: '18', // Fixed usually
+    isin: '', // New required field
+
+    // Step 2: Specifics
     numberOfShares: '',
-    denomination: 'USD',
+    nominalValue: '1',
+    currency: 'USD',
+
+    // Step 3: External Lists (Placeholder for now)
+    kycProviderAddress: '',
+    pauseAddress: '',
+
+    // Step 4: ERC3643 (Corporate Actions)
+    votingRights: true,
     dividendYield: '',
-    votingRights: false,
+
+    // Step 5: Regulation
     regulationType: 'REG_D' as 'REG_D' | 'REG_S' | 'REG_CF',
     regulationSubType: '506-B',
   });
 
-  // Use the client-side equity creation hook
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Hook for creation logic
   const { createEquity, isLoading: isCreating } = useCreateEquity({
     companyId,
     onSuccess: (result) => {
       console.log('🎉 Equity created successfully:', result);
       setSuccess(`Equity deployed! Asset Address: ${result.assetAddress}`);
-      setStep('complete');
       setTimeout(() => {
         router.push(`/company/dashboard/${companyId}`);
-      }, 2000);
+      }, 3000);
     },
     onError: (err) => {
       console.error('🔥 Equity creation error:', err);
       setError(err);
-      setStep('form');
     },
   });
 
-  // Fetch company on mount - wait for token to be available
+  // Fetch company
   useEffect(() => {
     if (companyId && token) {
       fetchCompanyById(companyId);
     }
   }, [companyId, token]);
 
-  // Auto-advance to form if already connected
-  useEffect(() => {
-    if (isConnected && step === 'connect') {
-      setStep('form');
-    }
-  }, [isConnected, step]);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-
-    if (type === 'checkbox') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: (e.target as HTMLInputElement).checked,
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    }));
   };
 
-  const handleConnect = async () => {
-    try {
-      setError('');
-      await connect();
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
+  const handleNext = () => {
+    // Basic validation per step
+    if (currentStep === 1) {
+      if (!formData.name || !formData.symbol || !formData.isin) {
+        setError('Please fill in all mandatory fields (Name, Symbol, ISIN)');
+        return;
+      }
     }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('🟢 handleSubmit triggered');
     setError('');
-    setSuccess('');
+    setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
+  };
 
-    // Log all critical state before doing anything
-    console.log('Auth state:', { user, token });
-    console.log('Company state:', currentCompany);
-    console.log('Wallet state:', { isConnected, account });
-    console.log('Form data:', formData);
+  const handleBack = () => {
+    setError('');
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
 
+  const handleSubmit = async () => {
     if (!currentCompany || !account) {
-      console.error('❌ Missing required data:', {
-        hasCompany: !!currentCompany,
-        hasAccount: !!account,
-      });
       setError('Missing company data or wallet not connected');
       return;
     }
 
     try {
-      setIsLoading(true);
-      setStep('deploying');
-      setSuccess('Deploying equity token on Hedera... Please sign the transaction in your wallet.');
-
-      // Prepare params for client-side SDK
       const deployParams: CreateEquityParams = {
         name: formData.name,
         symbol: formData.symbol,
+        isin: formData.isin,
         numberOfShares: formData.numberOfShares,
-        denomination: formData.denomination,
+        denomination: formData.currency,
+        denominationValue: formData.nominalValue,
         regulationType: formData.regulationType,
         regulationSubType: formData.regulationSubType,
         dividendYield: parseFloat(formData.dividendYield) || 0,
         votingRights: formData.votingRights,
         companyName: currentCompany.name,
         companyAccountId: account.accountId,
-        kycProviderAddress: '',
-        pauseAddress: '',
+        kycProviderAddress: formData.kycProviderAddress,
+        pauseAddress: formData.pauseAddress,
       };
 
-      console.log('🧩 Deploy params prepared:', deployParams);
-
-      // Call the client-side SDK (this will prompt wallet signing)
       await createEquity(deployParams);
-
     } catch (err: any) {
-      console.error('🔥 Equity creation error:', err);
       setError(err.message || 'Failed to create equity');
-      setStep('form');
-    } finally {
-      setIsLoading(false);
-      console.log('🧹 handleSubmit finished');
     }
   };
 
+  // --- RENDER HELPERS ---
 
-  // Show loading while auth is being checked or company is being fetched
+  const renderStepIndicator = () => (
+    <div className="flex items-center justify-between mb-12 px-4 overflow-x-auto">
+      {STEPS.map((step, index) => {
+        const isActive = step.id === currentStep;
+        const isCompleted = step.id < currentStep;
+
+        return (
+          <div key={step.id} className="flex items-center">
+            {/* Circle */}
+            <div className={`
+              flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-bold transition-colors
+              ${isActive || isCompleted ? 'bg-primary border-primary text-white' : 'bg-transparent border-light-200 text-light-200'}
+            `}>
+              {step.id}
+            </div>
+
+            {/* Label */}
+            <span className={`
+              ml-2 text-sm font-medium whitespace-nowrap
+              ${isActive ? 'text-white' : 'text-light-200'}
+            `}>
+              {step.name}
+            </span>
+
+            {/* Connector Line (except last) */}
+            {index < STEPS.length - 1 && (
+              <div className={`
+                h-0.5 w-8 sm:w-16 mx-4 transition-colors
+                ${isCompleted ? 'bg-primary' : 'bg-light-200/20'}
+              `} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderContent = () => {
+    switch (currentStep) {
+      case 1: // Create Equity (General)
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-2">Create Equity</h3>
+              <p className="text-light-100 text-sm mb-6">Enter the basics details to start creating it.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Name *</label>
+                <input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter name"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Symbol *</label>
+                <input
+                  name="symbol"
+                  value={formData.symbol}
+                  onChange={handleChange}
+                  placeholder="Enter Symbol"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Decimals *</label>
+                <input
+                  name="decimals"
+                  value={formData.decimals}
+                  disabled
+                  className="w-full px-4 py-3 bg-dark-300 border border-border rounded-lg text-light-200 cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">ISIN *</label>
+                <input
+                  name="isin"
+                  value={formData.isin}
+                  onChange={handleChange}
+                  placeholder="US1234567890"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+                <p className="text-xs text-light-200 mt-1">International Securities Identification Number</p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 2: // Specific details
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <h3 className="text-xl font-semibold text-white mb-4">Specific Details</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Number of Shares *</label>
+                <input
+                  name="numberOfShares"
+                  type="number"
+                  value={formData.numberOfShares}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Nominal Value (Price per share) *</label>
+                <input
+                  name="nominalValue"
+                  type="number"
+                  value={formData.nominalValue}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Currency *</label>
+                <select
+                  name="currency"
+                  value={formData.currency}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                >
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="KES">KES</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 3: // External Lists
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <h3 className="text-xl font-semibold text-white mb-4">External Lists (Optional)</h3>
+            <p className="text-light-200 text-sm mb-4">Configure external compliance providers.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">KYC Provider Address</label>
+                <input
+                  name="kycProviderAddress"
+                  value={formData.kycProviderAddress}
+                  onChange={handleChange}
+                  placeholder="0.0.xxxxx"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Pause Key Address</label>
+                <input
+                  name="pauseAddress"
+                  value={formData.pauseAddress}
+                  onChange={handleChange}
+                  placeholder="0.0.xxxxx"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 4: // ERC3643
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <h3 className="text-xl font-semibold text-white mb-4">Corporate Actions</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Dividend Yield (%)</label>
+                <input
+                  name="dividendYield"
+                  type="number"
+                  step="0.01"
+                  value={formData.dividendYield}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="flex items-center p-4 bg-dark-100 rounded-lg border border-border">
+                <input
+                  id="votingRights"
+                  name="votingRights"
+                  type="checkbox"
+                  checked={formData.votingRights}
+                  onChange={handleChange}
+                  className="h-5 w-5 text-primary border-gray-600 rounded focus:ring-primary"
+                />
+                <label htmlFor="votingRights" className="ml-3 text-sm font-medium text-white">
+                  Enable Voting Rights
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 5: // Regulation
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <h3 className="text-xl font-semibold text-white mb-4">Regulation</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Regulation Type *</label>
+                <select
+                  name="regulationType"
+                  value={formData.regulationType}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                >
+                  <option value="REG_D">Reg D (US Private Placement)</option>
+                  <option value="REG_S">Reg S (International)</option>
+                  <option value="REG_CF">Reg CF (Crowdfunding)</option>
+                </select>
+              </div>
+              {formData.regulationType === 'REG_D' && (
+                <div>
+                  <label className="block text-sm font-medium text-light-100 mb-1">Reg D Sub-Type</label>
+                  <select
+                    name="regulationSubType"
+                    value={formData.regulationSubType}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="506-B">506(b)</option>
+                    <option value="506-C">506(c)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 6: // Review
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <h3 className="text-xl font-semibold text-white mb-4">Review & Deploy</h3>
+            <div className="bg-dark-100 p-6 rounded-lg border border-border space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="text-light-200">Name</div>
+                <div className="text-white font-medium text-right">{formData.name}</div>
+
+                <div className="text-light-200">Symbol</div>
+                <div className="text-white font-medium text-right">{formData.symbol}</div>
+
+                <div className="text-light-200">ISIN</div>
+                <div className="text-white font-medium text-right">{formData.isin}</div>
+
+                <div className="text-light-200">Shares</div>
+                <div className="text-white font-medium text-right">{formData.numberOfShares}</div>
+
+                <div className="text-light-200">Price</div>
+                <div className="text-white font-medium text-right">{formData.nominalValue} {formData.currency}</div>
+
+                <div className="text-light-200">Regulation</div>
+                <div className="text-white font-medium text-right">{formData.regulationType}</div>
+              </div>
+            </div>
+
+            {/* Connection Warning */}
+            {!isConnected && (
+              <div className="p-4 bg-orange-500/10 border border-orange-500/20 text-orange-200 rounded-lg text-sm">
+                Please connect your wallet to deploy.
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (authLoading || (companyLoading && !currentCompany)) {
-    return (
-      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-light-100">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error if no token (not logged in)
-  if (!token) {
-    return (
-      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-light-100 mb-4">Please log in to access this page</p>
-          <a href="/auth/login" className="text-primary hover:underline">Go to Login</a>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error if company not found
-  if (!currentCompany && !companyLoading) {
-    return (
-      <div className="min-h-screen bg-dark-100 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-light-100 mb-4">Company not found</p>
-          <a href="/" className="text-primary hover:underline">Go Home</a>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen bg-dark-100 flex items-center justify-center text-white">Loading...</div>;
   }
 
   return (
     <div className="min-h-screen bg-dark-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-dark-200 rounded-lg border border-border p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white">Create Equity Token</h1>
-            <p className="mt-2 text-light-100">
-              Issue ERC-1400 compliant equity tokens for {currentCompany?.name}
-            </p>
-            <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <svg className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-primary">Powered by Hedera Asset Tokenization Studio</p>
-                  <ul className="mt-2 text-xs text-light-100 space-y-1">
-                    <li>• ERC-1400 & ERC-3643 compliant security tokens</li>
-                    <li>• Built-in regulatory compliance (SEC Reg D, S, CF)</li>
-                    <li>• On-chain KYC/AML and transfer restrictions</li>
-                    <li>• Automated corporate actions (dividends, voting)</li>
-                  </ul>
-                </div>
-              </div>
+      <div className="max-w-4xl mx-auto">
+
+        {/* Header */}
+        <div className="mb-8">
+          <button onClick={() => router.back()} className="text-light-200 hover:text-white text-sm flex items-center mb-4 transition-colors">
+            ← Back to Dashboard
+          </button>
+          <h1 className="text-3xl font-bold text-white">Equity Creation</h1>
+        </div>
+
+        {/* Steps */}
+        {renderStepIndicator()}
+
+        {/* Main Card */}
+        <div className="bg-dark-200 rounded-xl border border-border p-8 shadow-xl">
+
+          {/* Connection Top Bar (if not connected) */}
+          {!isConnected && (
+            <div className="mb-8 flex justify-end">
+              <ConnectButton />
             </div>
+          )}
+
+          {/* Content */}
+          <div className="min-h-[400px]">
+            {success ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mb-4 text-2xl">✓</div>
+                <h2 className="text-2xl font-bold text-white mb-2">Success!</h2>
+                <p className="text-light-200">{success}</p>
+              </div>
+            ) : (
+              renderContent()
+            )}
           </div>
 
-          {/* Wallet Connection Step */}
-          {step === 'connect' && (
-            <div className="text-center py-8">
-              <div className="w-20 h-20 mx-auto mb-6 bg-primary/10 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Connect Your Wallet</h3>
-              <p className="text-light-100 mb-6">
-                Connect HashPack or Blade wallet to deploy equity tokens
-              </p>
-
-              <ConnectButton onAccountConnected={() => { setStep("form") }} />
-              <p className="mt-6 text-sm text-light-200">
-                Don't have a wallet?{' '}
-                <a href="https://www.hashpack.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  Get HashPack
-                </a>
-              </p>
-            </div>
-          )}
-
-          {/* Connected Wallet Display */}
-          {isConnected && account && step !== 'connect' && (
-            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-light-100 mb-1">Connected Wallet</p>
-                  <p className="text-green-500 font-mono text-sm">{account.accountId}</p>
-                </div>
-                <button
-                  onClick={() => disconnect()}
-                  className="text-sm text-light-200 hover:text-destructive transition-colors"
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Error/Success Messages */}
+          {/* Error Display */}
           {error && (
-            <div className="mb-6 bg-destructive/10 text-destructive p-4 rounded-md border border-destructive/20">
-              <p className="font-medium">Error</p>
-              <p className="text-sm mt-1">{error}</p>
+            <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 text-red-200 rounded-lg text-sm">
+              {error}
             </div>
           )}
 
-          {success && (
-            <div className="mb-6 bg-green-500/10 text-green-500 p-4 rounded-md border border-green-500/20">
-              <div className="flex items-center space-x-2">
-                {isLoading && (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500 flex-shrink-0"></div>
-                )}
-                <div>
-                  <p className="font-medium">Status</p>
-                  <p className="text-sm mt-1">{success}</p>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Footer / Navigation */}
+          {!success && (
+            <div className="mt-8 pt-6 border-t border-border flex justify-between">
+              <button
+                onClick={handleBack}
+                disabled={currentStep === 1 || isCreating}
+                className="px-6 py-3 border border-border text-white rounded-lg hover:bg-dark-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
 
-          {/* Form */}
-          {(step === 'form' || step === 'deploying') && (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white">Basic Information</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-light-100 mb-1">
-                      Equity Name *
-                    </label>
-                    <input
-                      id="name"
-                      name="name"
-                      type="text"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-dark-100 border border-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="e.g., Common Stock"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="symbol" className="block text-sm font-medium text-light-100 mb-1">
-                      Symbol *
-                    </label>
-                    <input
-                      id="symbol"
-                      name="symbol"
-                      type="text"
-                      value={formData.symbol}
-                      onChange={handleChange}
-                      maxLength={5}
-                      className="w-full px-3 py-2 bg-dark-100 border border-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary uppercase"
-                      placeholder="e.g., CS"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="numberOfShares" className="block text-sm font-medium text-light-100 mb-1">
-                      Number of Shares *
-                    </label>
-                    <input
-                      id="numberOfShares"
-                      name="numberOfShares"
-                      type="number"
-                      value={formData.numberOfShares}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-dark-100 border border-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="e.g., 1000000"
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="denomination" className="block text-sm font-medium text-light-100 mb-1">
-                      Denomination
-                    </label>
-                    <select
-                      id="denomination"
-                      name="denomination"
-                      value={formData.denomination}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-dark-100 border border-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isLoading}
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="KES">KES</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Regulation */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white">Regulatory Compliance</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="regulationType" className="block text-sm font-medium text-light-100 mb-1">
-                      Regulation Type *
-                    </label>
-                    <select
-                      id="regulationType"
-                      name="regulationType"
-                      value={formData.regulationType}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-dark-100 border border-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                      required
-                      disabled={isLoading}
-                    >
-                      <option value="REG_D">Reg D (US Private Placement)</option>
-                      <option value="REG_S">Reg S (International)</option>
-                      <option value="REG_CF">Reg CF (Crowdfunding)</option>
-                    </select>
-                  </div>
-
-                  {formData.regulationType === 'REG_D' && (
-                    <div>
-                      <label htmlFor="regulationSubType" className="block text-sm font-medium text-light-100 mb-1">
-                        Reg D Sub-Type
-                      </label>
-                      <select
-                        id="regulationSubType"
-                        name="regulationSubType"
-                        value={formData.regulationSubType}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-dark-100 border border-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                        disabled={isLoading}
-                      >
-                        <option value="506-B">506(b) - No General Solicitation</option>
-                        <option value="506-C">506(c) - Accredited Only</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Corporate Actions */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white">Corporate Actions</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="dividendYield" className="block text-sm font-medium text-light-100 mb-1">
-                      Dividend Yield (%)
-                    </label>
-                    <input
-                      id="dividendYield"
-                      name="dividendYield"
-                      type="number"
-                      step="0.01"
-                      value={formData.dividendYield}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-dark-100 border border-border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="e.g., 5.5"
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="flex items-center pt-8">
-                    <input
-                      id="votingRights"
-                      name="votingRights"
-                      type="checkbox"
-                      checked={formData.votingRights}
-                      onChange={handleChange}
-                      className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
-                      disabled={isLoading}
-                    />
-                    <label htmlFor="votingRights" className="ml-2 text-sm font-medium text-light-100">
-                      Voting Rights
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info Box */}
-              <div className="bg-dark-100 border border-border rounded-lg p-4">
-                <h4 className="font-medium text-white mb-2 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  What You're Creating
-                </h4>
-                <ul className="text-sm text-light-100 space-y-2">
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span><strong>ERC-1400/3643 Compliant:</strong> Industry-standard security token with partition management</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span><strong>On-Chain Compliance:</strong> Built-in KYC, transfer restrictions, and regulatory checks</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span><strong>Corporate Actions:</strong> Automated dividend payments and voting mechanisms</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span><strong>Immutable Audit Trail:</strong> All transactions recorded on Hedera for compliance</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-4 pt-4">
+              {currentStep < STEPS.length ? (
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 py-3 px-4 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium shadow-lg shadow-primary/20"
                 >
-                  {isLoading ? (
+                  Next Step
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={isCreating || !isConnected}
+                  className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-lg shadow-primary/20 flex items-center"
+                >
+                  {isCreating ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Deploying Token...
+                      <span className="animate-spin mr-2">⟳</span> Deploying...
                     </>
                   ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Deploy Equity Token
-                    </>
+                    'Deploy Equity'
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => router.back()}
-                  disabled={isLoading}
-                  className="flex-1 py-3 px-4 bg-dark-100 text-white border border-border rounded-md hover:bg-dark-200 font-medium transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Complete Step */}
-          {step === 'complete' && (
-            <div className="text-center py-8">
-              <div className="w-20 h-20 mx-auto mb-6 bg-green-500/10 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Equity Token Created!</h3>
-              <p className="text-light-100 mb-6">
-                Your security token has been successfully deployed on Hedera
-              </p>
-              <button
-                onClick={() => router.push(`/company/dashboard/${companyId}`)}
-                className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
-              >
-                Return to Dashboard
-              </button>
+              )}
             </div>
           )}
         </div>
