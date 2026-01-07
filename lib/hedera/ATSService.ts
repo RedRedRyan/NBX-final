@@ -433,11 +433,18 @@ class ATSServiceClass {
             const externalControlIds = params.externalControlIds || undefined;
             const externalKycIds = params.externalKycIds || (params.kycProviderAddress ? [params.kycProviderAddress] : undefined);
 
+            // Clean and validate ISIN
+            const cleanIsin = (params.isin || '').trim().toUpperCase();
+            if (!cleanIsin || cleanIsin.length !== 12) {
+                throw new Error(`Invalid ISIN format: "${params.isin}". ISIN must be exactly 12 characters.`);
+            }
+            console.log('[ATS] Using ISIN:', cleanIsin);
+
             const request = new CreateEquityRequest({
                 // General Information
                 name: params.name,
                 symbol: params.symbol,
-                isin: params.isin || 'KE0000000000',
+                isin: cleanIsin,
                 decimals: params.decimals ?? 4, // ATS Studio default is 4
 
                 // Digital Security Permissions
@@ -663,11 +670,18 @@ class ATSServiceClass {
             const externalControlIds = params.externalControlIds || undefined;
             const externalKycIds = params.externalKycIds || undefined;
 
+            // Clean and validate ISIN
+            const cleanIsin = (params.isin || '').trim().toUpperCase();
+            if (!cleanIsin || cleanIsin.length !== 12) {
+                throw new Error(`Invalid ISIN format: "${params.isin}". ISIN must be exactly 12 characters.`);
+            }
+            console.log('[ATS] Using ISIN:', cleanIsin);
+
             const request = new CreateBondRequest({
                 // General Information
                 name: params.name,
                 symbol: params.symbol,
-                isin: params.isin || 'KE0000000000',
+                isin: cleanIsin,
                 decimals: params.decimals ?? 0,
 
                 // Digital Security Permissions

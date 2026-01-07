@@ -20,6 +20,11 @@ const martianMono = Martian_Mono({
 export const metadata: Metadata = {
   title: "NBX - Nairobi Block Exchange",
   description: "Tokenize and trade equities and bonds supporting business",
+  icons: {
+    icon: "/icons/logo.png",
+    shortcut: "/icons/logo.png",
+    apple: "/icons/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -35,29 +40,29 @@ export default function RootLayout({
         <AuthProvider>
           <CompanyProvider>
             <WalletProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <div className="relative flex-1">
-              <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-                <LightRays
-                  raysOrigin="top-center-offset"
-                  raysColor="#fb4f1f"
-                  raysSpeed={1.5}
-                  lightSpread={1.8}
-                  rayLength={1.2}
-                  followMouse={true}
-                  mouseInfluence={0.1}
-                  noiseAmount={0.1}
-                  distortion={0.05}
-                  className="custom-rays"
-                />
+              <div className="flex min-h-screen">
+                <Sidebar />
+                <div className="relative flex-1">
+                  <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                    <LightRays
+                      raysOrigin="top-center-offset"
+                      raysColor="#fb4f1f"
+                      raysSpeed={1.5}
+                      lightSpread={1.8}
+                      rayLength={1.2}
+                      followMouse={true}
+                      mouseInfluence={0.1}
+                      noiseAmount={0.1}
+                      distortion={0.05}
+                      className="custom-rays"
+                    />
+                  </div>
+                  <main className="min-h-screen px-6 pt-6 md:px-10">
+                    {children}
+                  </main>
+                </div>
               </div>
-              <main className="min-h-screen px-6 pt-6 md:px-10">
-                {children}
-              </main>
-            </div>
-          </div>
-          </WalletProvider>
+            </WalletProvider>
           </CompanyProvider>
         </AuthProvider>
       </body>

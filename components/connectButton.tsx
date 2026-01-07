@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useWallet } from "@/lib/context/WalletContext";
 
 interface ConnectButtonProps {
@@ -17,12 +17,20 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({ onAccountConnected }) => 
     error,
   } = useWallet();
 
+  // Watch for account changes and notify parent component
+  useEffect(() => {
+    if (onAccountConnected) {
+      if (isConnected && account?.accountId) {
+        onAccountConnected(account.accountId);
+      } else if (!isConnected) {
+        onAccountConnected("");
+      }
+    }
+  }, [isConnected, account?.accountId, onAccountConnected]);
+
   const handleConnect = async () => {
     try {
       await connect();
-      if (account?.accountId && onAccountConnected) {
-        onAccountConnected(account.accountId);
-      }
     } catch (err) {
       console.error("Error connecting wallet:", err);
     }
@@ -31,7 +39,6 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({ onAccountConnected }) => 
   const handleDisconnect = async () => {
     try {
       await disconnect();
-      if (onAccountConnected) onAccountConnected("");
     } catch (err) {
       console.error("Error disconnecting wallet:", err);
     }
