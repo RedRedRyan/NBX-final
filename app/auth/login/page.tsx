@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 const LoginPage = () => {
   const router = useRouter();
   const { login, user } = useAuth();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,21 +17,21 @@ const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     // Validate inputs
     if (!email || !password) {
       setError('Email and password are required');
       return;
     }
-    
+
     try {
       setIsLoading(true);
       await login(email, password);
-      
+
       // Redirect based on user role
       // Note: user will be updated after login, so we check the response
       // For now, redirect to a default page and let the app handle role-based routing
-      router.push('/markets');
+      router.push('/wallet');
     } catch (error: any) {
       setError(error?.message || 'Invalid email or password');
     } finally {
@@ -46,13 +46,13 @@ const LoginPage = () => {
           <h1 className="text-2xl font-bold">Sign In</h1>
           <p className="mt-2 text-light-100">Access your NBX account</p>
         </div>
-        
+
         {error && (
           <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-light-100">
@@ -68,7 +68,7 @@ const LoginPage = () => {
               required
             />
           </div>
-          
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-light-100">
               Password
@@ -83,7 +83,7 @@ const LoginPage = () => {
               required
             />
           </div>
-          
+
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
@@ -96,14 +96,14 @@ const LoginPage = () => {
                 Remember me
               </label>
             </div>
-            
+
             <div className="text-sm">
               <a href="#" className="text-primary hover:text-primary/80">
                 Forgot password?
               </a>
             </div>
           </div>
-          
+
           <div>
             <button
               type="submit"
@@ -114,7 +114,7 @@ const LoginPage = () => {
             </button>
           </div>
         </form>
-        
+
         <div className="text-center mt-4">
           <p className="text-sm text-light-100">
             Don't have an account?{' '}

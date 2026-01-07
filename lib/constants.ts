@@ -251,22 +251,22 @@ export const tradeModes = [
 
 // Earn options
 export const earnOptions = [
-  { 
-    id: "flexible", 
+  {
+    id: "flexible",
     label: "Flexible Earning",
     description: "Earn interest on your assets with the flexibility to withdraw anytime",
     apy: "Up to 5% APY",
     img: "/icons/3dcoins.png"
   },
-  { 
-    id: "fixed", 
+  {
+    id: "fixed",
     label: "Fixed Earning",
     description: "Lock your assets for a fixed period to earn higher interest rates",
     apy: "Up to 12% APY",
     img: "/icons/3dsafe.png"
   },
-  { 
-    id: "referrals", 
+  {
+    id: "referrals",
     label: "Referrals",
     description: "Earn rewards by referring friends and family to NBX",
     reward: "Up to 40% commission",
@@ -281,4 +281,26 @@ export const walletActions = [
   { id: "transfer", label: "Transfer", icon: "/icons/transfer.png" },
   { id: "convert", label: "Convert", icon: "/icons/convert.png" },
   { id: "gift", label: "Gift", icon: "/icons/gift.png" }
+];
+
+// KESy Stablecoin Token (Orion Ramp)
+export const KESY_TOKEN = {
+  tokenId: "0.0.7228867",
+  symbol: "KESy",
+  name: "Kenyan Shilling Stablecoin",
+  decimals: 6, // Default, will be fetched from mirror node
+  icon: "/kes.jpg", // KES stablecoin icon
+  network: "testnet",
+};
+
+// Available payment tokens for purchasing securities
+// KESy is the platform default and only option
+export const PAYMENT_TOKENS = [
+  {
+    tokenId: "0.0.7228867",
+    symbol: "KESy",
+    name: "KES Stablecoin",
+    icon: "/kes.jpg",
+    isDefault: true,
+  },
 ];

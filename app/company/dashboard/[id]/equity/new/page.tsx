@@ -8,14 +8,24 @@ import { useCompany } from '@/lib/context/CompanyContext';
 import { useCreateEquity } from '@/hooks/useCreateEquity';
 import type { CreateEquityParams } from '@/lib/hedera/ATSService';
 import ConnectButton from '@/components/connectButton';
+import Toggle from '@/components/ui/Toggle';
+import CountrySelect from '@/components/ui/CountrySelect';
+import { PAYMENT_TOKENS } from '@/lib/constants';
 
 const STEPS = [
-  { id: 1, name: 'Create Equity' },
-  { id: 2, name: 'Specific details' },
-  { id: 3, name: 'External Lists' },
-  { id: 4, name: 'ERC3643' },
-  { id: 5, name: 'Regulation' },
-  { id: 6, name: 'Review' },
+  { id: 1, name: 'General Information' },
+  { id: 2, name: 'Specific Details' },
+  { id: 3, name: 'Rights & Privileges' },
+  { id: 4, name: 'External Lists' },
+  { id: 5, name: 'ERC3643' },
+  { id: 6, name: 'Regulation' },
+  { id: 7, name: 'Review' },
+];
+
+const DIVIDEND_TYPES = [
+  { value: 0, label: 'None' },
+  { value: 1, label: 'Preferred' },
+  { value: 2, label: 'Common' },
 ];
 
 const CreateEquityPage = () => {
@@ -28,30 +38,52 @@ const CreateEquityPage = () => {
   const companyId = params.id as string;
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Form State
+  // Form State - organized by step
   const [formData, setFormData] = useState({
-    // Step 1: General
+    // Step 1: General Information
     name: '',
     symbol: '',
-    decimals: '18', // Fixed usually
-    isin: '', // New required field
+    decimals: '4',
+    isin: '',
+    // Digital Security Permissions
+    isControllable: true,
+    isBlocklist: true,
+    isApprovalList: false,
+    // Digital Security Configuration
+    clearingModeEnabled: false,
+    internalKycActivated: true,
 
-    // Step 2: Specifics
+    // Step 2: Specific Details (Economic Information)
     numberOfShares: '',
-    nominalValue: '1',
+    nominalValue: '1.00',
     currency: 'USD',
 
-    // Step 3: External Lists (Placeholder for now)
-    kycProviderAddress: '',
-    pauseAddress: '',
+    // Step 3: Rights & Privileges
+    votingRights: false,
+    informationRights: false,
+    liquidationRights: false,
+    conversionRights: false,
+    subscriptionRights: false,
+    redemptionRights: false,
+    putRight: false,
+    dividendType: 0 as 0 | 1 | 2,
 
-    // Step 4: ERC3643 (Corporate Actions)
-    votingRights: true,
-    dividendYield: '',
+    // Step 4: External Lists
+    externalPauseIds: '',
+    externalControlIds: '',
+    externalKycIds: '',
 
-    // Step 5: Regulation
+    // Step 5: ERC3643
+    complianceId: '',
+    identityRegistryId: '',
+
+    // Step 6: Regulation
     regulationType: 'REG_D' as 'REG_D' | 'REG_S' | 'REG_CF',
     regulationSubType: '506-B',
+    jurisdiction: 'US',
+
+    // Payment Tokens (default to KESy)
+    paymentTokens: ['0.0.7228867'], // KESy token ID as default
   });
 
   const [error, setError] = useState('');
@@ -88,11 +120,21 @@ const CreateEquityPage = () => {
     }));
   };
 
+  const handleToggle = (field: string) => (checked: boolean) => {
+    setFormData(prev => ({ ...prev, [field]: checked }));
+  };
+
   const handleNext = () => {
     // Basic validation per step
     if (currentStep === 1) {
       if (!formData.name || !formData.symbol || !formData.isin) {
         setError('Please fill in all mandatory fields (Name, Symbol, ISIN)');
+        return;
+      }
+    }
+    if (currentStep === 2) {
+      if (!formData.numberOfShares || !formData.nominalValue) {
+        setError('Please fill in Number of Shares and Nominal Value');
         return;
       }
     }
@@ -113,20 +155,55 @@ const CreateEquityPage = () => {
 
     try {
       const deployParams: CreateEquityParams = {
+        // General Information
         name: formData.name,
         symbol: formData.symbol,
         isin: formData.isin,
+        decimals: parseInt(formData.decimals) || 4,
+
+        // Digital Security Permissions
+        isControllable: formData.isControllable,
+        isBlocklist: formData.isBlocklist,
+        isApprovalList: formData.isApprovalList,
+
+        // Digital Security Configuration
+        clearingModeEnabled: formData.clearingModeEnabled,
+        internalKycActivated: formData.internalKycActivated,
+
+        // Economic Information
+        nominalValue: formData.nominalValue,
+        currency: formData.currency,
         numberOfShares: formData.numberOfShares,
-        denomination: formData.currency,
-        denominationValue: formData.nominalValue,
+
+        // Rights and Privileges
+        votingRights: formData.votingRights,
+        informationRights: formData.informationRights,
+        liquidationRights: formData.liquidationRights,
+        conversionRights: formData.conversionRights,
+        subscriptionRights: formData.subscriptionRights,
+        redemptionRights: formData.redemptionRights,
+        putRight: formData.putRight,
+        dividendType: formData.dividendType,
+
+        // External Lists
+        externalPauseIds: formData.externalPauseIds ? formData.externalPauseIds.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        externalControlIds: formData.externalControlIds ? formData.externalControlIds.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        externalKycIds: formData.externalKycIds ? formData.externalKycIds.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+
+        // ERC3643
+        complianceId: formData.complianceId || undefined,
+        identityRegistryId: formData.identityRegistryId || undefined,
+
+        // Regulation
         regulationType: formData.regulationType,
         regulationSubType: formData.regulationSubType,
-        dividendYield: parseFloat(formData.dividendYield) || 0,
-        votingRights: formData.votingRights,
+
+        // Payment Tokens
+        paymentTokens: formData.paymentTokens,
+
+        // Metadata
         companyName: currentCompany.name,
         companyAccountId: account.accountId,
-        kycProviderAddress: formData.kycProviderAddress,
-        pauseAddress: formData.pauseAddress,
       };
 
       await createEquity(deployParams);
@@ -138,7 +215,7 @@ const CreateEquityPage = () => {
   // --- RENDER HELPERS ---
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-between mb-12 px-4 overflow-x-auto">
+    <div className="flex items-center justify-between mb-12 px-2 overflow-x-auto">
       {STEPS.map((step, index) => {
         const isActive = step.id === currentStep;
         const isCompleted = step.id < currentStep;
@@ -147,15 +224,15 @@ const CreateEquityPage = () => {
           <div key={step.id} className="flex items-center">
             {/* Circle */}
             <div className={`
-              flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-bold transition-colors
+              flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-bold transition-colors flex-shrink-0
               ${isActive || isCompleted ? 'bg-primary border-primary text-white' : 'bg-transparent border-light-200 text-light-200'}
             `}>
               {step.id}
             </div>
 
-            {/* Label */}
+            {/* Label - hidden on small screens */}
             <span className={`
-              ml-2 text-sm font-medium whitespace-nowrap
+              ml-2 text-xs font-medium whitespace-nowrap hidden sm:inline
               ${isActive ? 'text-white' : 'text-light-200'}
             `}>
               {step.name}
@@ -164,7 +241,7 @@ const CreateEquityPage = () => {
             {/* Connector Line (except last) */}
             {index < STEPS.length - 1 && (
               <div className={`
-                h-0.5 w-8 sm:w-16 mx-4 transition-colors
+                h-0.5 w-4 sm:w-8 mx-2 sm:mx-4 transition-colors flex-shrink-0
                 ${isCompleted ? 'bg-primary' : 'bg-light-200/20'}
               `} />
             )}
@@ -176,22 +253,22 @@ const CreateEquityPage = () => {
 
   const renderContent = () => {
     switch (currentStep) {
-      case 1: // Create Equity (General)
+      case 1: // General Information
         return (
           <div className="space-y-6 animate-fadeIn">
             <div>
-              <h3 className="text-xl font-semibold text-white mb-2">Create Equity</h3>
-              <p className="text-light-100 text-sm mb-6">Enter the basics details to start creating it.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">General Information</h3>
+              <p className="text-light-100 text-sm mb-6">Enter the basic details of the digital security.</p>
             </div>
 
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-1">Name *</label>
                 <input
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="Enter name"
+                  placeholder="e.g. YTECH"
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
               </div>
@@ -201,7 +278,7 @@ const CreateEquityPage = () => {
                   name="symbol"
                   value={formData.symbol}
                   onChange={handleChange}
-                  placeholder="Enter Symbol"
+                  placeholder="e.g. YTECH"
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all uppercase"
                 />
               </div>
@@ -209,10 +286,14 @@ const CreateEquityPage = () => {
                 <label className="block text-sm font-medium text-light-100 mb-1">Decimals *</label>
                 <input
                   name="decimals"
+                  type="number"
+                  min="0"
+                  max="18"
                   value={formData.decimals}
-                  disabled
-                  className="w-full px-4 py-3 bg-dark-300 border border-border rounded-lg text-light-200 cursor-not-allowed"
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
+                <p className="text-xs text-light-200 mt-1">Token decimal places (0-18)</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-1">ISIN *</label>
@@ -220,40 +301,86 @@ const CreateEquityPage = () => {
                   name="isin"
                   value={formData.isin}
                   onChange={handleChange}
-                  placeholder="US1234567890"
+                  placeholder="KE1000001402"
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
                 <p className="text-xs text-light-200 mt-1">International Securities Identification Number</p>
               </div>
             </div>
+
+            {/* Digital Security Permissions */}
+            <div className="pt-4 border-t border-border">
+              <h4 className="text-sm font-semibold text-white mb-4">Digital Security Permissions</h4>
+              <div className="space-y-3">
+                <Toggle
+                  id="isControllable"
+                  label="Controllable"
+                  description="Allow issuer to control and manage transfers"
+                  checked={formData.isControllable}
+                  onChange={handleToggle('isControllable')}
+                />
+                <Toggle
+                  id="isBlocklist"
+                  label="Blocklist"
+                  description="Enable blocklist functionality for compliance"
+                  checked={formData.isBlocklist}
+                  onChange={handleToggle('isBlocklist')}
+                />
+                <Toggle
+                  id="isApprovalList"
+                  label="Approval List"
+                  description="Require approval for transfers"
+                  checked={formData.isApprovalList}
+                  onChange={handleToggle('isApprovalList')}
+                />
+              </div>
+            </div>
+
+            {/* Digital Security Configuration */}
+            <div className="pt-4 border-t border-border">
+              <h4 className="text-sm font-semibold text-white mb-4">Digital Security Configuration</h4>
+              <div className="space-y-3">
+                <Toggle
+                  id="clearingModeEnabled"
+                  label="Clearing Mode Enabled"
+                  description="Enable clearing mode for settlement"
+                  checked={formData.clearingModeEnabled}
+                  onChange={handleToggle('clearingModeEnabled')}
+                />
+                <Toggle
+                  id="internalKycActivated"
+                  label="Internal KYC Activated"
+                  description="Use internal KYC verification"
+                  checked={formData.internalKycActivated}
+                  onChange={handleToggle('internalKycActivated')}
+                />
+              </div>
+            </div>
           </div>
         );
 
-      case 2: // Specific details
+      case 2: // Specific Details
         return (
           <div className="space-y-6 animate-fadeIn">
-            <h3 className="text-xl font-semibold text-white mb-4">Specific Details</h3>
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-2">Economic Information</h3>
+              <p className="text-light-100 text-sm mb-6">Enter currency, type, amount details.</p>
+            </div>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-light-100 mb-1">Number of Shares *</label>
-                <input
-                  name="numberOfShares"
-                  type="number"
-                  value={formData.numberOfShares}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-light-100 mb-1">Nominal Value (Price per share) *</label>
+                <label className="block text-sm font-medium text-light-100 mb-1">Nominal Value *</label>
                 <input
                   name="nominalValue"
-                  type="number"
+                  type="text"
                   value={formData.nominalValue}
                   onChange={handleChange}
+                  placeholder="1.00"
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
                 />
+                <p className="text-xs text-light-200 mt-1">Face value per share</p>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-1">Currency *</label>
                 <select
@@ -262,83 +389,285 @@ const CreateEquityPage = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
                 >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="KES">KES</option>
+                  <option value="USD">🇺🇸 USD - US Dollar</option>
+                  <option value="EUR">🇪🇺 EUR - Euro</option>
+                  <option value="GBP">🇬🇧 GBP - British Pound</option>
+                  <option value="KES">🇰🇪 KES - Kenyan Shilling</option>
+                  <option value="CHF">🇨🇭 CHF - Swiss Franc</option>
+                  <option value="JPY">🇯🇵 JPY - Japanese Yen</option>
+                  <option value="SGD">🇸🇬 SGD - Singapore Dollar</option>
+                  <option value="AED">🇦🇪 AED - UAE Dirham</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Number of Shares *</label>
+                <input
+                  name="numberOfShares"
+                  type="text"
+                  value={formData.numberOfShares}
+                  onChange={handleChange}
+                  placeholder="100,000,000.0000"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div className="p-4 bg-dark-100 rounded-lg border border-border">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-light-200">Total Value</span>
+                  <span className="text-lg font-semibold text-white">
+                    {formData.numberOfShares && formData.nominalValue
+                      ? (parseFloat(formData.numberOfShares.replace(/,/g, '')) * parseFloat(formData.nominalValue)).toLocaleString()
+                      : '0'} {formData.currency}
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment Tokens Section */}
+              <div className="pt-4 border-t border-border">
+                <h4 className="text-sm font-semibold text-white mb-2">Accepted Payment Tokens</h4>
+                <p className="text-xs text-light-200 mb-4">
+                  Select which tokens investors can use to purchase this security. KESy is the platform default.
+                </p>
+                <div className="space-y-3">
+                  {PAYMENT_TOKENS.map((token) => {
+                    const isSelected = formData.paymentTokens.includes(token.tokenId);
+                    return (
+                      <label
+                        key={token.tokenId}
+                        className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${isSelected
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border bg-dark-100 hover:border-primary/50'
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData(prev => ({
+                                ...prev,
+                                paymentTokens: [...prev.paymentTokens, token.tokenId]
+                              }));
+                            } else {
+                              // Don't allow unchecking if it's the only token
+                              if (formData.paymentTokens.length > 1) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  paymentTokens: prev.paymentTokens.filter(t => t !== token.tokenId)
+                                }));
+                              }
+                            }
+                          }}
+                          className="w-4 h-4 text-primary bg-dark-200 border-border rounded focus:ring-primary"
+                        />
+                        <div className="ml-3 flex items-center flex-1">
+                          <div className="w-8 h-8 bg-dark-200 rounded-full flex items-center justify-center mr-3 overflow-hidden">
+                            <span className="text-xs font-bold">{token.symbol.charAt(0)}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-white">{token.symbol}</p>
+                            <p className="text-xs text-light-200">{token.name}</p>
+                          </div>
+                          {token.isDefault && (
+                            <span className="ml-auto text-xs px-2 py-1 bg-primary/20 text-primary rounded">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         );
 
-      case 3: // External Lists
+      case 3: // Rights & Privileges
         return (
           <div className="space-y-6 animate-fadeIn">
-            <h3 className="text-xl font-semibold text-white mb-4">External Lists (Optional)</h3>
-            <p className="text-light-200 text-sm mb-4">Configure external compliance providers.</p>
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-2">Rights and Privileges</h3>
+              <p className="text-light-100 text-sm mb-6">Configure shareholder rights for this equity.</p>
+            </div>
+
+            <div className="space-y-3">
+              <Toggle
+                id="votingRights"
+                label="Voting Rights"
+                description="Shareholders can vote on company decisions"
+                checked={formData.votingRights}
+                onChange={handleToggle('votingRights')}
+              />
+              <Toggle
+                id="informationRights"
+                label="Information Rights"
+                description="Shareholders can access company information"
+                checked={formData.informationRights}
+                onChange={handleToggle('informationRights')}
+              />
+              <Toggle
+                id="liquidationRights"
+                label="Liquidation Rights"
+                description="Shareholders have claims in case of liquidation"
+                checked={formData.liquidationRights}
+                onChange={handleToggle('liquidationRights')}
+              />
+              <Toggle
+                id="conversionRights"
+                label="Conversion Rights"
+                description="Shares can be converted to another class"
+                checked={formData.conversionRights}
+                onChange={handleToggle('conversionRights')}
+              />
+              <Toggle
+                id="subscriptionRights"
+                label="Subscription Rights"
+                description="Shareholders have preemptive rights"
+                checked={formData.subscriptionRights}
+                onChange={handleToggle('subscriptionRights')}
+              />
+              <Toggle
+                id="redemptionRights"
+                label="Redemption Rights"
+                description="Shares can be redeemed by issuer"
+                checked={formData.redemptionRights}
+                onChange={handleToggle('redemptionRights')}
+              />
+              <Toggle
+                id="putRight"
+                label="Put Right"
+                description="Shareholders can sell shares back to issuer"
+                checked={formData.putRight}
+                onChange={handleToggle('putRight')}
+              />
+            </div>
+
+            {/* Dividend Type */}
+            <div className="pt-4 border-t border-border">
+              <label className="block text-sm font-medium text-light-100 mb-2">Dividend Type *</label>
+              <select
+                name="dividendType"
+                value={formData.dividendType}
+                onChange={(e) => setFormData(prev => ({ ...prev, dividendType: parseInt(e.target.value) as 0 | 1 | 2 }))}
+                className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+              >
+                {DIVIDEND_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-light-200 mt-1">
+                {formData.dividendType === 0 && 'No dividend rights attached'}
+                {formData.dividendType === 1 && 'Preferred dividend priority over common shares'}
+                {formData.dividendType === 2 && 'Common dividend rights'}
+              </p>
+            </div>
+          </div>
+        );
+
+      case 4: // External Lists
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-2">External Lists</h3>
+              <p className="text-light-100 text-sm mb-6">Add external lists configurations (optional).</p>
+            </div>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-light-100 mb-1">KYC Provider Address</label>
+                <label className="block text-sm font-medium text-light-100 mb-1">External Pause List</label>
                 <input
-                  name="kycProviderAddress"
-                  value={formData.kycProviderAddress}
+                  name="externalPauseIds"
+                  value={formData.externalPauseIds}
                   onChange={handleChange}
                   placeholder="0.0.xxxxx"
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
                 />
+                <p className="text-xs text-light-200 mt-1">Hedera account ID for external pause control</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-light-100 mb-1">Pause Key Address</label>
+                <label className="block text-sm font-medium text-light-100 mb-1">External Control List</label>
                 <input
-                  name="pauseAddress"
-                  value={formData.pauseAddress}
+                  name="externalControlIds"
+                  value={formData.externalControlIds}
                   onChange={handleChange}
                   placeholder="0.0.xxxxx"
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
                 />
+                <p className="text-xs text-light-200 mt-1">Hedera account ID for external control list</p>
               </div>
-            </div>
-          </div>
-        );
-
-      case 4: // ERC3643
-        return (
-          <div className="space-y-6 animate-fadeIn">
-            <h3 className="text-xl font-semibold text-white mb-4">Corporate Actions</h3>
-            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-light-100 mb-1">Dividend Yield (%)</label>
+                <label className="block text-sm font-medium text-light-100 mb-1">External KYC List</label>
                 <input
-                  name="dividendYield"
-                  type="number"
-                  step="0.01"
-                  value={formData.dividendYield}
+                  name="externalKycIds"
+                  value={formData.externalKycIds}
                   onChange={handleChange}
+                  placeholder="0.0.xxxxx"
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
                 />
-              </div>
-              <div className="flex items-center p-4 bg-dark-100 rounded-lg border border-border">
-                <input
-                  id="votingRights"
-                  name="votingRights"
-                  type="checkbox"
-                  checked={formData.votingRights}
-                  onChange={handleChange}
-                  className="h-5 w-5 text-primary border-gray-600 rounded focus:ring-primary"
-                />
-                <label htmlFor="votingRights" className="ml-3 text-sm font-medium text-white">
-                  Enable Voting Rights
-                </label>
+                <p className="text-xs text-light-200 mt-1">Hedera account ID for external KYC verification</p>
               </div>
             </div>
           </div>
         );
 
-      case 5: // Regulation
+      case 5: // ERC3643
         return (
           <div className="space-y-6 animate-fadeIn">
-            <h3 className="text-xl font-semibold text-white mb-4">Regulation</h3>
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-2">ERC3643 Configuration</h3>
+              <p className="text-light-100 text-sm mb-6">Add ERC3643 compliance configurations (optional).</p>
+            </div>
+
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Compliance ID</label>
+                <input
+                  name="complianceId"
+                  value={formData.complianceId}
+                  onChange={handleChange}
+                  placeholder="0.0.123456"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+                <p className="text-xs text-light-200 mt-1">Hedera account ID for compliance module</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-light-100 mb-1">Identity Registry ID</label>
+                <input
+                  name="identityRegistryId"
+                  value={formData.identityRegistryId}
+                  onChange={handleChange}
+                  placeholder="0.0.123456"
+                  className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                />
+                <p className="text-xs text-light-200 mt-1">Hedera account ID for identity registry</p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 6: // Regulation
+        return (
+          <div className="space-y-6 animate-fadeIn">
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-2">Regulation</h3>
+              <p className="text-light-100 text-sm mb-6">Configure regulatory compliance settings.</p>
+            </div>
+
+            <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg mb-6">
+              <p className="text-orange-200 text-sm">
+                ⚠️ It is recommended to consult your legal and financial advisor for regulations applicable to your asset token.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <CountrySelect
+                label="Jurisdiction *"
+                value={formData.jurisdiction}
+                onChange={(code) => setFormData(prev => ({ ...prev, jurisdiction: code }))}
+              />
+
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-1">Regulation Type *</label>
                 <select
@@ -347,11 +676,12 @@ const CreateEquityPage = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-3 bg-dark-100 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
                 >
-                  <option value="REG_D">Reg D (US Private Placement)</option>
-                  <option value="REG_S">Reg S (International)</option>
-                  <option value="REG_CF">Reg CF (Crowdfunding)</option>
+                  <option value="REG_D">Regulation D (US Private Placement)</option>
+                  <option value="REG_S">Regulation S (International)</option>
+                  <option value="REG_CF">Regulation CF (Crowdfunding)</option>
                 </select>
               </div>
+
               {formData.regulationType === 'REG_D' && (
                 <div>
                   <label className="block text-sm font-medium text-light-100 mb-1">Reg D Sub-Type</label>
@@ -366,33 +696,82 @@ const CreateEquityPage = () => {
                   </select>
                 </div>
               )}
+
+              {/* Regulation Info Box */}
+              <div className="p-4 bg-dark-100 rounded-lg border border-border">
+                <h5 className="text-sm font-semibold text-white mb-3">Regulation {formData.regulationType.replace('REG_', '')} Restrictions</h5>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="text-light-200">Deal Size</div>
+                  <div className="text-white">{formData.regulationType === 'REG_S' ? 'Unlimited' : formData.regulationType === 'REG_D' ? 'Unlimited' : 'Up to $5M'}</div>
+
+                  <div className="text-light-200">Accredited Investors</div>
+                  <div className="text-white">{formData.regulationType === 'REG_CF' ? 'Not Required' : 'Required'}</div>
+
+                  <div className="text-light-200">International Investors</div>
+                  <div className="text-white">{formData.regulationType === 'REG_S' ? 'Allowed' : 'Limited'}</div>
+
+                  <div className="text-light-200">Resale Hold Period</div>
+                  <div className="text-white">{formData.regulationType === 'REG_S' ? 'Not applicable' : '6-12 months'}</div>
+                </div>
+              </div>
             </div>
           </div>
         );
 
-      case 6: // Review
+      case 7: // Review
         return (
           <div className="space-y-6 animate-fadeIn">
             <h3 className="text-xl font-semibold text-white mb-4">Review & Deploy</h3>
-            <div className="bg-dark-100 p-6 rounded-lg border border-border space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="text-light-200">Name</div>
-                <div className="text-white font-medium text-right">{formData.name}</div>
 
-                <div className="text-light-200">Symbol</div>
-                <div className="text-white font-medium text-right">{formData.symbol}</div>
+            <div className="bg-dark-100 p-6 rounded-lg border border-border space-y-6">
+              {/* General Information */}
+              <div>
+                <h4 className="text-sm font-semibold text-primary mb-3">General Information</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="text-light-200">Name</div>
+                  <div className="text-white font-medium text-right">{formData.name}</div>
+                  <div className="text-light-200">Symbol</div>
+                  <div className="text-white font-medium text-right">{formData.symbol}</div>
+                  <div className="text-light-200">ISIN</div>
+                  <div className="text-white font-medium text-right">{formData.isin}</div>
+                  <div className="text-light-200">Decimals</div>
+                  <div className="text-white font-medium text-right">{formData.decimals}</div>
+                </div>
+              </div>
 
-                <div className="text-light-200">ISIN</div>
-                <div className="text-white font-medium text-right">{formData.isin}</div>
+              {/* Economic Information */}
+              <div className="pt-4 border-t border-border/50">
+                <h4 className="text-sm font-semibold text-primary mb-3">Economic Information</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="text-light-200">Shares</div>
+                  <div className="text-white font-medium text-right">{formData.numberOfShares}</div>
+                  <div className="text-light-200">Price</div>
+                  <div className="text-white font-medium text-right">{formData.nominalValue} {formData.currency}</div>
+                </div>
+              </div>
 
-                <div className="text-light-200">Shares</div>
-                <div className="text-white font-medium text-right">{formData.numberOfShares}</div>
+              {/* Configuration */}
+              <div className="pt-4 border-t border-border/50">
+                <h4 className="text-sm font-semibold text-primary mb-3">Configuration</h4>
+                <div className="flex flex-wrap gap-2">
+                  {formData.isControllable && <span className="px-2 py-1 bg-primary/20 text-primary text-xs rounded">Controllable</span>}
+                  {formData.isBlocklist && <span className="px-2 py-1 bg-primary/20 text-primary text-xs rounded">Blocklist</span>}
+                  {formData.internalKycActivated && <span className="px-2 py-1 bg-primary/20 text-primary text-xs rounded">Internal KYC</span>}
+                  {formData.votingRights && <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Voting</span>}
+                  {formData.informationRights && <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Information</span>}
+                  {formData.liquidationRights && <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Liquidation</span>}
+                </div>
+              </div>
 
-                <div className="text-light-200">Price</div>
-                <div className="text-white font-medium text-right">{formData.nominalValue} {formData.currency}</div>
-
-                <div className="text-light-200">Regulation</div>
-                <div className="text-white font-medium text-right">{formData.regulationType}</div>
+              {/* Regulation */}
+              <div className="pt-4 border-t border-border/50">
+                <h4 className="text-sm font-semibold text-primary mb-3">Regulation</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="text-light-200">Type</div>
+                  <div className="text-white font-medium text-right">{formData.regulationType}</div>
+                  <div className="text-light-200">Dividend Type</div>
+                  <div className="text-white font-medium text-right">{DIVIDEND_TYPES.find(t => t.value === formData.dividendType)?.label}</div>
+                </div>
               </div>
             </div>
 
@@ -424,6 +803,7 @@ const CreateEquityPage = () => {
             ← Back to Dashboard
           </button>
           <h1 className="text-3xl font-bold text-white">Equity Creation</h1>
+          <p className="text-light-200 mt-1">Create a new digital equity security</p>
         </div>
 
         {/* Steps */}

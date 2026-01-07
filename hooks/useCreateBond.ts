@@ -1,21 +1,21 @@
-// hooks/useCreateEquity.ts
-// React hook for creating equity tokens using the ATS SDK
-
 "use client";
 
 import { useState, useCallback } from 'react';
-import { ATSService, type CreateEquityParams, type SecurityResult } from '@/lib/hedera/ATSService';
+import { ATSService, type CreateBondParams, type SecurityResult } from '@/lib/hedera/ATSService';
 import { ApiClient } from '@/lib/api/client';
 import { useAuth } from '@/lib/context/AuthContext';
 
-export interface UseCreateEquityOptions {
+// Re-export CreateBondParams from ATSService for external use
+export type { CreateBondParams };
+
+export interface UseCreateBondOptions {
     companyId: string;
     onSuccess?: (result: SecurityResult) => void;
     onError?: (error: string) => void;
 }
 
-export interface UseCreateEquityReturn {
-    createEquity: (params: CreateEquityParams) => Promise<SecurityResult>;
+export interface UseCreateBondReturn {
+    createBond: (params: CreateBondParams) => Promise<SecurityResult>;
     isLoading: boolean;
     error: string | null;
     result: SecurityResult | null;
@@ -51,7 +51,7 @@ function formatTransactionId(txId: unknown): string {
     return JSON.stringify(txId);
 }
 
-export function useCreateEquity(options: UseCreateEquityOptions): UseCreateEquityReturn {
+export function useCreateBond(options: UseCreateBondOptions): UseCreateBondReturn {
     const { companyId, onSuccess, onError } = options;
     const { token } = useAuth();
 
@@ -59,73 +59,60 @@ export function useCreateEquity(options: UseCreateEquityOptions): UseCreateEquit
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<SecurityResult | null>(null);
 
-    const createEquity = useCallback(async (params: CreateEquityParams): Promise<SecurityResult> => {
+    const createBond = useCallback(async (params: CreateBondParams): Promise<SecurityResult> => {
         setIsLoading(true);
         setError(null);
         setResult(null);
 
         try {
-            console.log('[useCreateEquity] Starting equity creation...');
+            console.log('[useCreateBond] Starting bond creation...');
 
-            // Step 1: Initialize SDK if not already done
             if (!ATSService.isSDKInitialized()) {
-                console.log('[useCreateEquity] Initializing ATS SDK...');
                 await ATSService.init();
             }
 
-            // Step 2: Check if wallet is connected through ATS
-            // Note: The SDK should use the connected wallet
-            // If not connected via ATS, we may need to connect
             if (!ATSService.isWalletConnected()) {
-                console.log('[useCreateEquity] Connecting wallet through ATS...');
                 await ATSService.connectWallet();
             }
 
-            // Step 3: Create the equity token on-chain
-            // This will prompt the user to sign in their wallet
-            console.log('[useCreateEquity] Creating equity on-chain...');
-            const deployResult = await ATSService.createEquity(params);
+            console.log('[useCreateBond] Creating bond on-chain...');
+            const deployResult = await ATSService.createBond(params);
 
             if (!deployResult.success) {
-                throw new Error(deployResult.error || 'Failed to deploy equity token');
+                throw new Error(deployResult.error || 'Failed to deploy bond token');
             }
 
-            console.log('[useCreateEquity] Equity deployed:', deployResult);
+            console.log('[useCreateBond] Bond deployed:', deployResult);
 
-            // Step 4: Save to backend database
             if (token && deployResult.assetAddress) {
-                console.log('[useCreateEquity] Saving to database...');
+                console.log('[useCreateBond] Saving to database...');
                 try {
                     // Include all relevant fields from params and deployment result
-                    const equityPayload = {
+                    const bondPayload = {
                         // Basic info
                         name: params.name,
                         symbol: params.symbol,
                         isin: params.isin,
-                        decimals: params.decimals ?? 4,
+                        decimals: params.decimals ?? 0,
 
-                        // Economic info
-                        totalSupply: params.numberOfShares,
+                        // Bond economics
+                        totalSupply: params.numberOfUnits || params.totalSupply,
+                        faceValue: params.nominalValue,
                         nominalValue: params.nominalValue,
-                        currency: params.currency || 'USD',
-
-                        // Rights and privileges
-                        dividendYield: params.dividendYield || 0,
-                        dividendType: params.dividendType || 0,
-                        votingRights: params.votingRights ?? false,
-                        informationRights: params.informationRights ?? false,
-                        liquidationRights: params.liquidationRights ?? false,
-                        subscriptionRights: params.subscriptionRights ?? false,
-                        conversionRights: params.conversionRights ?? false,
-                        redemptionRights: params.redemptionRights ?? false,
-                        putRight: params.putRight ?? false,
+                        currency: params.currency,
+                        couponRate: params.couponRate,
+                        startingDate: params.startingDate instanceof Date
+                            ? Math.floor(params.startingDate.getTime() / 1000)
+                            : params.startingDate,
+                        maturityDate: params.maturityDate instanceof Date
+                            ? Math.floor(params.maturityDate.getTime() / 1000)
+                            : params.maturityDate,
 
                         // Configuration
                         isControllable: params.isControllable ?? true,
                         isBlocklist: params.isBlocklist ?? true,
-                        isApprovalList: params.isApprovalList ?? false,
                         clearingModeEnabled: params.clearingModeEnabled ?? false,
-                        internalKycActivated: params.internalKycActivated ?? true,
+                        internalKycActivated: params.internalKycActivated ?? false,
 
                         // Regulation
                         regulationType: params.regulationType,
@@ -135,11 +122,12 @@ export function useCreateEquity(options: UseCreateEquityOptions): UseCreateEquit
                         assetAddress: deployResult.assetAddress,
                         diamondAddress: deployResult.security?.diamondAddress?.toString() || deployResult.assetAddress,
                         transactionId: formatTransactionId(deployResult.transactionId),
-                        treasuryAccountId: params.companyAccountId,
 
                         // Company and network info
                         companyId,
+                        issuer: params.companyName,
                         companyName: params.companyName,
+                        treasuryAccountId: params.companyAccountId,
                         network: process.env.NEXT_PUBLIC_NETWORK || 'testnet',
 
                         // Status
@@ -148,12 +136,10 @@ export function useCreateEquity(options: UseCreateEquityOptions): UseCreateEquit
                         tokenizedAt: new Date().toISOString(),
                     };
 
-                    await ApiClient.createEquity(companyId, equityPayload, token);
-                    console.log('[useCreateEquity] Saved to database successfully');
+                    await ApiClient.createBond(companyId, bondPayload, token);
+                    console.log('[useCreateBond] Saved to database successfully');
                 } catch (dbError: any) {
-                    console.warn('[useCreateEquity] Failed to save to database:', dbError);
-                    // Don't fail the whole operation if DB save fails
-                    // The token is already deployed on-chain
+                    console.warn('[useCreateBond] Failed to save to database:', dbError);
                 }
             }
 
@@ -162,8 +148,8 @@ export function useCreateEquity(options: UseCreateEquityOptions): UseCreateEquit
             return deployResult;
 
         } catch (err: any) {
-            console.error('[useCreateEquity] Error:', err);
-            const errorMessage = err.message || 'Failed to create equity';
+            console.error('[useCreateBond] Error:', err);
+            const errorMessage = err.message || 'Failed to create bond';
             setError(errorMessage);
             onError?.(errorMessage);
 
@@ -186,7 +172,7 @@ export function useCreateEquity(options: UseCreateEquityOptions): UseCreateEquit
     }, []);
 
     return {
-        createEquity,
+        createBond,
         isLoading,
         error,
         result,
@@ -194,4 +180,4 @@ export function useCreateEquity(options: UseCreateEquityOptions): UseCreateEquit
     };
 }
 
-export default useCreateEquity;
+export default useCreateBond;

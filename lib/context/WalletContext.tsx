@@ -17,11 +17,12 @@ interface WalletContextType {
   isConnected: boolean;
   session: SessionTypes.Struct | null;
   account: WalletAccount | null;
-  signAndExecuteTransaction: (
-    transaction: Uint8Array | string
-  ) => Promise<string>;
   loading: boolean;
   error: string | null;
+  // Token operations
+  associateToken: (tokenId: string) => Promise<{ success: boolean; transactionId?: string; error?: string }>;
+  isTokenAssociated: (tokenId: string) => Promise<boolean>;
+  getTokenBalance: (tokenId: string) => Promise<{ balance: number; decimals: number } | null>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -65,25 +66,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       try {
-        const events: Partial<WalletEvent> = {
-          walletConnect: {
-            onSessionDelete: () => {
-              console.log('[WalletContext] Session deleted');
-              setIsConnected(false);
-              setAccount(null);
-              setSession(null);
-            },
-            onSessionExpire: () => {
-              console.log('[WalletContext] Session expired');
-              setIsConnected(false);
-              setAccount(null);
-              setSession(null);
-            }
-            // Add other events if SDK supports them in the interface
-          }
-        };
-
-        await ATSService.init(events);
+        // Initialize without custom events (SDK handles internally)
+        await ATSService.init();
         setIsInitialized(true);
         syncState();
 
@@ -136,11 +120,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const signAndExecuteTransaction = async (
-    transaction: Uint8Array | string
-  ) => {
-    // Proxy to ATSService
-    return await ATSService.signAndExecuteTransaction(transaction);
+
+
+  // Token operations - proxy to ATSService
+  const associateToken = async (tokenId: string) => {
+    return await ATSService.associateToken(tokenId);
+  };
+
+  const isTokenAssociated = async (tokenId: string) => {
+    return await ATSService.isTokenAssociated(tokenId);
+  };
+
+  const getTokenBalance = async (tokenId: string) => {
+    return await ATSService.getTokenBalance(tokenId);
   };
 
   return (
@@ -151,9 +143,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
         isConnected,
         session,
         account,
-        signAndExecuteTransaction,
         loading,
         error,
+        associateToken,
+        isTokenAssociated,
+        getTokenBalance,
       }}
     >
       {children}

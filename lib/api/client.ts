@@ -124,6 +124,18 @@ export class ApiClient {
       const responseData = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - clear auth and redirect to login
+        if (response.status === 401) {
+          console.warn('Session expired or unauthorized. Logging out...');
+          // Clear auth data from localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('nbx_token');
+            localStorage.removeItem('nbx_user');
+            // Redirect to login page
+            window.location.href = '/auth/login';
+          }
+          throw new Error('Session expired. Please log in again.');
+        }
         throw new Error(responseData.message || `API Error: ${response.status}`);
       }
 
@@ -181,6 +193,17 @@ export class ApiClient {
     });
   }
 
+  // Securities/IPO endpoints
+  static async getAllSecurities(type?: 'equity' | 'bond' | 'all', status?: string) {
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (status) params.append('status', status);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return this.request<{ success: boolean; count: number; data: any[] }>(
+      `/companies/securities/all${queryString}`
+    );
+  }
+
   // Bond endpoints
   static async createBond(companyId: string, data: any, token: string) {
     return this.request(`/companies/${companyId}/bond`, {
@@ -190,8 +213,8 @@ export class ApiClient {
     });
   }
 
-  static async getBonds(companyId: string, token?: string) {
-    return this.request(`/companies/${companyId}/bond`, { token });
+  static async getBonds(companyId: string, token?: string): Promise<ApiResponse<any[]>> {
+    return this.request<ApiResponse<any[]>>(`/companies/${companyId}/bond`, { token });
   }
 
   // Equity endpoints
@@ -203,8 +226,8 @@ export class ApiClient {
     });
   }
 
-  static async getEquities(companyId: string, token?: string) {
-    return this.request(`/companies/${companyId}/equity`, { token });
+  static async getEquities(companyId: string, token?: string): Promise<ApiResponse<any[]>> {
+    return this.request<ApiResponse<any[]>>(`/companies/${companyId}/equity`, { token });
   }
 
   // Upload endpoints

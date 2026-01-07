@@ -4,10 +4,10 @@ import { getATSConfig } from './atsConfig';
 // Map regulation type strings to numbers
 const getRegulationTypeNumber = (regulationType: string): number => {
   switch (regulationType) {
-    case 'REG_D': return 1;
-    case 'REG_S': return 2;
-    case 'REG_CF': return 3;
-    default: return 1; // Default to REG_D
+    case 'REG_S': return 1;
+    case 'REG_D': return 2;
+    case 'REG_CF': return 2; // SDK does not support REG_CF, defaulting to REG_D
+    default: return 2; // Default to REG_D
   }
 };
 

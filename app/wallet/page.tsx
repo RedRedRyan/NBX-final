@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { walletActions } from '@/lib/constants';
+import { walletActions, KESY_TOKEN } from '@/lib/constants';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useWallet } from '@/lib/context/WalletContext';
 import Image from "next/image";
@@ -22,7 +22,17 @@ interface Asset {
 const WalletPage = () => {
   const router = useRouter();
   const { user } = useAuth();
-  const { isConnected, account, connect, disconnect, loading: walletLoading, error: walletError } = useWallet();
+  const {
+    isConnected,
+    account,
+    connect,
+    disconnect,
+    loading: walletLoading,
+    error: walletError,
+    associateToken,
+    isTokenAssociated,
+    getTokenBalance,
+  } = useWallet();
   const [showDepositModal, setShowDepositModal] = useState(false);
 
   const [hideBalance, setHideBalance] = useState(false);
@@ -31,6 +41,63 @@ const WalletPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [totalBalance, setTotalBalance] = useState(0);
   const [showKYCModal, setShowKYCModal] = useState(false);
+
+  // KESy token state
+  const [kesyBalance, setKesyBalance] = useState<number | null>(null);
+  const [isKesyAssociated, setIsKesyAssociated] = useState<boolean | null>(null);
+  const [kesyLoading, setKesyLoading] = useState(false);
+  const [associating, setAssociating] = useState(false);
+
+  // Check KESy token association and balance
+  useEffect(() => {
+    const checkKesyToken = async () => {
+      if (!isConnected || !account?.accountId) {
+        setIsKesyAssociated(null);
+        setKesyBalance(null);
+        return;
+      }
+
+      setKesyLoading(true);
+      try {
+        // Check if wallet is associated with KESy
+        const associated = await isTokenAssociated(KESY_TOKEN.tokenId);
+        setIsKesyAssociated(associated);
+
+        if (associated) {
+          // Fetch KESy balance
+          const balanceData = await getTokenBalance(KESY_TOKEN.tokenId);
+          setKesyBalance(balanceData?.balance ?? 0);
+        } else {
+          setKesyBalance(null);
+        }
+      } catch (err) {
+        console.error('Error checking KESy token:', err);
+        setIsKesyAssociated(false);
+      } finally {
+        setKesyLoading(false);
+      }
+    };
+
+    checkKesyToken();
+  }, [isConnected, account?.accountId, isTokenAssociated, getTokenBalance]);
+
+  // Handle KESy token association
+  const handleAssociateKesy = async () => {
+    setAssociating(true);
+    try {
+      const result = await associateToken(KESY_TOKEN.tokenId);
+      if (result.success) {
+        setIsKesyAssociated(true);
+        setKesyBalance(0);
+      } else {
+        setError(result.error || 'Failed to associate token');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to associate token');
+    } finally {
+      setAssociating(false);
+    }
+  };
 
   // Fetch assets from Hedera
   useEffect(() => {
@@ -43,6 +110,21 @@ const WalletPage = () => {
       try {
         setLoading(true);
         setError(null);
+
+        // Fetch real HBAR price from CoinGecko
+        let hbarPriceUsd = 0.05; // Default fallback
+        let kesUsdRate = 0.0077; // Default KES to USD rate (approx 1 USD = 130 KES)
+        try {
+          const priceResponse = await fetch(
+            'https://api.coingecko.com/api/v3/simple/price?ids=hedera-hashgraph&vs_currencies=usd'
+          );
+          if (priceResponse.ok) {
+            const priceData = await priceResponse.json();
+            hbarPriceUsd = priceData['hedera-hashgraph']?.usd || 0.05;
+          }
+        } catch (priceErr) {
+          console.warn('Failed to fetch HBAR price, using fallback:', priceErr);
+        }
 
         // Fetch account balance from Hedera Mirror Node (testnet)
         const response = await fetch(
@@ -68,19 +150,19 @@ const WalletPage = () => {
           : 0;
 
         const assetsList: Asset[] = [];
-        let total = 0;
+        let totalUsd = 0;
 
-        // Add HBAR
+        // Add HBAR with real price
         if (hbarBalance > 0) {
-          const hbarValue = hbarBalance * 0.05; // Mock price, you should fetch real price
+          const hbarValueUsd = hbarBalance * hbarPriceUsd;
           assetsList.push({
             name: 'HBAR',
             symbol: 'HBAR',
             balance: hbarBalance,
-            value: hbarValue,
+            value: hbarValueUsd,
             icon: '/icons/hbar.png',
           });
-          total += hbarValue;
+          totalUsd += hbarValueUsd;
         }
 
         // Add tokens
@@ -94,17 +176,32 @@ const WalletPage = () => {
               const tokenInfo = await tokenInfoResponse.json();
 
               const balance = token.balance / Math.pow(10, tokenInfo.decimals || 0);
-              const mockValue = balance; // Mock 1:1 value, you should fetch real prices
+
+              // Calculate value based on token type
+              let tokenValueUsd = 0;
+              let tokenIcon = '/icons/token.png';
+
+              // Check if this is KESy token (KES stablecoin - 1:1 with KES)
+              if (token.token_id === KESY_TOKEN.tokenId ||
+                tokenInfo.symbol?.toLowerCase().includes('kesy') ||
+                tokenInfo.symbol?.toLowerCase().includes('kes')) {
+                // KESy is 1:1 with KES, convert to USD
+                tokenValueUsd = balance * kesUsdRate;
+                tokenIcon = KESY_TOKEN.icon;
+              } else {
+                // For other tokens, use 1:1 as placeholder (you'd need price feeds)
+                tokenValueUsd = balance * hbarPriceUsd; // Rough estimate
+              }
 
               assetsList.push({
                 name: tokenInfo.name || token.token_id,
                 symbol: tokenInfo.symbol || 'TOKEN',
                 balance: balance,
-                value: mockValue,
-                icon: '/icons/token.png', // Default icon
+                value: tokenValueUsd,
+                icon: tokenIcon,
                 tokenId: token.token_id,
               });
-              total += mockValue;
+              totalUsd += tokenValueUsd;
             } catch (err) {
               console.error(`Failed to fetch token info for ${token.token_id}:`, err);
             }
@@ -112,7 +209,7 @@ const WalletPage = () => {
         }
 
         setAssets(assetsList);
-        setTotalBalance(total);
+        setTotalBalance(totalUsd);
       } catch (err) {
         console.error('Error fetching Hedera assets:', err);
         setError(err instanceof Error ? err.message : 'Failed to load wallet data');
@@ -142,6 +239,7 @@ const WalletPage = () => {
   if (!user) {
     return null;
   }
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -254,8 +352,8 @@ const WalletPage = () => {
             onClick={isConnected ? disconnect : connect}
             disabled={walletLoading}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isConnected
-                ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                : 'bg-primary hover:bg-primary/90 text-white'
+              ? 'bg-orange-600 hover:bg-orange-700 text-white'
+              : 'bg-primary hover:bg-primary/90 text-white'
               } ${walletLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {walletLoading ? 'Connecting...' : isConnected ? 'Disconnect Wallet' : 'Connect Wallet'}
@@ -280,6 +378,80 @@ const WalletPage = () => {
           </span>
         </div>
       </div>
+
+      {/* KESy Stablecoin Balance Card */}
+      {isConnected && (
+        <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-lg p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-14 h-14 bg-green-500/20 rounded-full flex items-center justify-center overflow-hidden">
+                <Image src={KESY_TOKEN.icon} alt={KESY_TOKEN.symbol} width={48} height={48} className="object-cover" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">{KESY_TOKEN.name}</h3>
+                <p className="text-sm text-light-200">Token ID: {KESY_TOKEN.tokenId}</p>
+              </div>
+            </div>
+
+            <div className="text-right">
+              {kesyLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-400"></div>
+                  <span className="text-light-200">Loading...</span>
+                </div>
+              ) : isKesyAssociated === false ? (
+                <button
+                  onClick={handleAssociateKesy}
+                  disabled={associating}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {associating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Associating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.172 13.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.102-1.101" />
+                      </svg>
+                      <span>Associate Token</span>
+                    </>
+                  )}
+                </button>
+              ) : isKesyAssociated === true ? (
+                <div>
+                  <p className="text-3xl font-bold text-white">
+                    {hideBalance ? '••••••' : `${kesyBalance?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}`}
+                  </p>
+                  <p className="text-sm text-green-400">{KESY_TOKEN.symbol}</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {isKesyAssociated === false && (
+            <p className="text-sm text-light-200 mt-4">
+              💡 Associate your wallet with {KESY_TOKEN.symbol} to receive deposits. This is a one-time transaction.
+            </p>
+          )}
+
+          {isKesyAssociated === true && (
+            <div className="mt-4 flex items-center space-x-4">
+              <button
+                onClick={() => setShowDepositModal(true)}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors text-sm"
+              >
+                Deposit KES
+              </button>
+              <span className="text-sm text-light-200">
+                Deposit Kenyan Shillings to receive {KESY_TOKEN.symbol} tokens
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="mb-8">

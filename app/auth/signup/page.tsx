@@ -9,7 +9,7 @@ import ConnectButton from '@/components/connectButton';
 const SignupPage = () => {
   const router = useRouter();
   const { signup } = useAuth();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,18 +29,18 @@ const SignupPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     // Validate inputs
     if (!email || !password || !confirmPassword) {
       setError('All fields are required');
       return;
     }
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
@@ -51,18 +51,18 @@ const SignupPage = () => {
       setError('Please connect your Hedera wallet before creating an account');
       return;
     }
-    
+
     try {
       setIsLoading(true);
       await signup(email, password, role, accountId); // Pass the connected account ID
-      
+
       // Redirect based on user role
       if (role === 'company') {
         router.push('/company/setup');
       } else if (role === 'auditor') {
         router.push('/auditor/dashboard');
       } else {
-        router.push('/markets');
+        router.push('/wallet');
       }
     } catch (error: any) {
       setError(error?.message || 'Failed to create account');
@@ -84,7 +84,7 @@ const SignupPage = () => {
           <h1 className="text-2xl font-bold">Create an Account</h1>
           <p className="mt-2 text-light-100">Join NBX to start trading equities and bonds</p>
         </div>
-        
+
         {/* User Role Selection */}
         <div className="space-y-3">
           <label className="block text-sm font-medium text-light-100">Account Type</label>
@@ -94,11 +94,10 @@ const SignupPage = () => {
                 key={r}
                 type="button"
                 onClick={() => setRole(r)}
-                className={`py-3 px-2 rounded-md text-xs font-medium transition-colors ${
-                  role === r 
-                    ? 'bg-primary text-white' 
+                className={`py-3 px-2 rounded-md text-xs font-medium transition-colors ${role === r
+                    ? 'bg-primary text-white'
                     : 'bg-dark-200 text-light-100 hover:bg-dark-300'
-                }`}
+                  }`}
               >
                 <div className="capitalize">{r}</div>
               </button>
@@ -106,13 +105,13 @@ const SignupPage = () => {
           </div>
           <p className="text-xs text-light-100">{roleDescriptions[role]}</p>
         </div>
-        
+
         {error && (
           <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-light-100">
@@ -128,7 +127,7 @@ const SignupPage = () => {
               required
             />
           </div>
-          
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-light-100">
               Password
@@ -143,7 +142,7 @@ const SignupPage = () => {
               required
             />
           </div>
-          
+
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-light-100">
               Confirm Password
@@ -158,10 +157,10 @@ const SignupPage = () => {
               required
             />
           </div>
-          
+
           {/* Wallet Connection Component */}
           <ConnectButton onAccountConnected={handleAccountConnected} />
-          
+
           <div>
             <button
               type="submit"
@@ -172,7 +171,7 @@ const SignupPage = () => {
             </button>
           </div>
         </form>
-        
+
         <div className="text-center mt-4">
           <p className="text-sm text-light-100">
             Already have an account?{' '}

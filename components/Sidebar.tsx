@@ -1,14 +1,16 @@
 "use client"
 import Link from "next/link"
 import Image from "next/image"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useAuth } from "@/lib/context/AuthContext"
 import { useWallet } from "@/lib/context/WalletContext"
+import { useCompany } from "@/lib/context/CompanyContext"
 import { usePathname, useRouter } from "next/navigation"
 
 const Sidebar = () => {
   const { user, logout } = useAuth()
   const { isConnected, account, connect, disconnect, loading: walletLoading, error: walletError } = useWallet()
+  const { companies } = useCompany()
   const pathname = usePathname()
   const router = useRouter()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -20,13 +22,31 @@ const Sidebar = () => {
   // Check if user was authenticated via ApiClient (has token in localStorage)
   const isApiAuth = typeof window !== 'undefined' && localStorage.getItem('authToken')
 
-  // Navigation items with icons
-  const navItems = [
-    { href: "/markets", label: "Markets", icon: "/icons/market.png" },
-    { href: "/trade", label: "Trade", icon: "/icons/trade.png" },
-    { href: "/earn", label: "Earn", icon: "/icons/earn.png" },
-    { href: "/wallet", label: "Wallet", icon: "/icons/wallet.png" },
-  ]
+  // Get the first company ID for company users
+  const companyId = companies?.[0]?._id
+
+  // Navigation items based on user role
+  const navItems = useMemo(() => {
+    const isCompanyUser = user?.role === 'company'
+
+    if (isCompanyUser && companyId) {
+      // Company user navigation
+      return [
+        { href: `/company/dashboard/${companyId}`, label: "Dashboard", icon: "/icons/market.png" },
+        { href: `/company/dashboard/${companyId}/equity/new`, label: "Issue Equity", icon: "/icons/earn.png" },
+        { href: `/company/dashboard/${companyId}/bond/new`, label: "Issue Bonds", icon: "/icons/trade.png" },
+        { href: "/wallet", label: "Wallet", icon: "/icons/wallet.png" },
+      ]
+    }
+
+    // Investor user navigation (default)
+    return [
+      { href: "/markets", label: "Markets", icon: "/icons/market.png" },
+      { href: "/trade", label: "Trade", icon: "/icons/trade.png" },
+      { href: "/earn", label: "Earn", icon: "/icons/earn.png" },
+      { href: "/wallet", label: "Wallet", icon: "/icons/wallet.png" },
+    ]
+  }, [user?.role, companyId])
 
   const handleLogout = () => {
     // Check if using API authentication
@@ -89,8 +109,8 @@ const Sidebar = () => {
               key={item.href}
               href={item.href}
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                ? "bg-blue-600 text-white"
+                : "text-gray-300 hover:bg-gray-800 hover:text-white"
                 }`}
             >
               <Image
@@ -134,8 +154,8 @@ const Sidebar = () => {
             onClick={isConnected ? disconnect : connect}
             disabled={walletLoading}
             className={`w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${isConnected
-                ? 'bg-orange-600 hover:bg-orange-700'
-                : 'bg-primary hover:bg-primary/90'
+              ? 'bg-orange-600 hover:bg-orange-700'
+              : 'bg-primary hover:bg-primary/90'
               } ${walletLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {walletLoading ? (

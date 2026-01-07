@@ -100,6 +100,10 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose }) => {
       const orderId = generateOrderId();
 
       // Prepare payment initialization data
+      // Build callback URL to redirect user back to wallet after payment
+      const baseUrl = process.env.NEXT_PUBLIC_FRONTEND_BASE_URL || 'http://localhost:3000';
+      const callbackUrl = `${baseUrl}/wallet?deposit=success`;
+
       const paymentData: any = {
         token: selectedToken as 'KESy_TESTNET',
         amount: parseFloat(amount),
@@ -109,7 +113,8 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose }) => {
           orderID: orderId
         },
         crypto_account: account.accountId,
-        channels: [paymentMethod]
+        channels: [paymentMethod],
+        callback_url: callbackUrl,
       };
 
       // Add phone number for M-Pesa
