@@ -8,12 +8,12 @@ const WalletSettingsPage = () => {
   const router = useRouter();
   const { user, logout } = useAuth();
   const email = user?.email ?? user?.useremail ?? '';
-  const accountTypeLabel = user?.accountType === 'individual' ? 'Individual' : 'Institution';
-  
+  const accountTypeLabel = user?.accountType === 'investor' ? 'Individual' : 'Institution';
+
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
-  
+
   // Redirect if not logged in
   useEffect(() => {
     if (!user) {
@@ -27,7 +27,7 @@ const WalletSettingsPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <button 
+      <button
         onClick={() => router.push('/wallet')}
         className="flex items-center text-light-100 hover:text-primary mb-6"
       >
@@ -47,19 +47,19 @@ const WalletSettingsPage = () => {
         </svg>
         Back to Wallet
       </button>
-      
+
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-2">Wallet Settings</h1>
         <p className="text-light-100">Manage your wallet preferences and security</p>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left side - Settings options */}
         <div className="lg:col-span-2 space-y-6">
           {/* Account Information */}
           <div className="bg-dark-100 border border-border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Account Information</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-2">
@@ -72,7 +72,7 @@ const WalletSettingsPage = () => {
                   className="w-full bg-dark-200 border border-border rounded-md py-2 px-3"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-2">
                   Account Type
@@ -84,7 +84,7 @@ const WalletSettingsPage = () => {
                   className="w-full bg-dark-200 border border-border rounded-md py-2 px-3"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-2">
                   Verification Status
@@ -94,17 +94,17 @@ const WalletSettingsPage = () => {
                     Pending Verification
                   </span>
                   <button className="text-primary hover:text-primary/80 ml-4 text-sm">
-                    Complete {user.accountType === 'individual' ? 'KYC' : 'KYB'}
+                    Complete {user.accountType === 'investor' ? 'KYC' : 'KYB'}
                   </button>
                 </div>
               </div>
             </div>
           </div>
-          
+
           {/* Preferences */}
           <div className="bg-dark-100 border border-border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Preferences</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-2">
@@ -121,7 +121,7 @@ const WalletSettingsPage = () => {
                   <option value="KES">KES - Kenyan Shilling</option>
                 </select>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium">Notifications</h3>
@@ -139,11 +139,11 @@ const WalletSettingsPage = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Security */}
           <div className="bg-dark-100 border border-border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Security</h2>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -160,7 +160,7 @@ const WalletSettingsPage = () => {
                   <div className="w-11 h-6 bg-dark-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
-              
+
               <div>
                 <button className="text-primary hover:text-primary/80 text-sm">
                   Change Password
@@ -169,7 +169,7 @@ const WalletSettingsPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Right side - Additional options */}
         <div className="space-y-6">
           <div className="bg-dark-100 border border-border rounded-lg p-6">
@@ -184,7 +184,7 @@ const WalletSettingsPage = () => {
               Log Out
             </button>
           </div>
-          
+
           <div className="bg-dark-100 border border-border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Support</h2>
             <div className="space-y-3">
@@ -205,7 +205,7 @@ const WalletSettingsPage = () => {
                 </svg>
                 Contact Support
               </button>
-              
+
               <button className="w-full bg-dark-200 text-light-100 py-2 rounded-md hover:bg-dark-200/80 flex items-center justify-center">
                 <svg
                   className="h-5 w-5 mr-2"
@@ -223,7 +223,7 @@ const WalletSettingsPage = () => {
                 </svg>
                 Documentation
               </button>
-              
+
               <button className="w-full bg-dark-200 text-light-100 py-2 rounded-md hover:bg-dark-200/80 flex items-center justify-center">
                 <svg
                   className="h-5 w-5 mr-2"

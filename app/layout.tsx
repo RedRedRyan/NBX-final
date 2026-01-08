@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/context/AuthContext";
 import { CompanyProvider } from "@/lib/context/CompanyContext";
 import { Wallet } from "lucide-react";
 import { WalletProvider } from "@/lib/context/WalletContext";
+import "@/lib/pollyfills";
 
 const schibstedGrotesk = Schibsted_Grotesk({
   variable: "--font-schibsted-grotesk",

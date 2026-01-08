@@ -23,7 +23,7 @@ const ParticlesBackground = () => {
         events: {
           onHover: {
             enable: true,
-            mode: "repulse",
+            mode: "repulse" as const,
           },
           resize: {
             enable: true,
@@ -51,10 +51,10 @@ const ParticlesBackground = () => {
           enable: false,
         },
         move: {
-          direction: "none",
+          direction: "none" as const,
           enable: true,
           outModes: {
-            default: "bounce",
+            default: "bounce" as const,
           },
           random: false,
           speed: 0.6,
@@ -71,7 +71,7 @@ const ParticlesBackground = () => {
           value: 0.4,
         },
         shape: {
-          type: "square"
+          type: "square" as const
         },
         size: {
           value: { min: 1, max: 3 },

@@ -1,9 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { ATSService, type ATSWalletState } from '@/lib/hedera/ATSService';
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import dynamic from 'next/dynamic';
 import type { SessionTypes } from "@walletconnect/types";
-import type { WalletEvent } from '@hashgraph/asset-tokenization-sdk';
 
 // Define account shape for UI compatibility
 interface WalletAccount {
@@ -19,7 +18,6 @@ interface WalletContextType {
   account: WalletAccount | null;
   loading: boolean;
   error: string | null;
-  // Token operations
   associateToken: (tokenId: string) => Promise<{ success: boolean; transactionId?: string; error?: string }>;
   isTokenAssociated: (tokenId: string) => Promise<boolean>;
   getTokenBalance: (tokenId: string) => Promise<{ balance: number; decimals: number } | null>;
@@ -27,7 +25,7 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
+const WalletProviderInner: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -35,68 +33,78 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
   const [account, setAccount] = useState<WalletAccount | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Sync state from ATSService
-  const syncState = () => {
-    // ATSService.getWalletState() returns ATSWalletState
-    const state = ATSService.getWalletState();
-    setIsConnected(state.isConnected);
-
-    // ATSService uses InitializationData which has 'account' object, usually with 'id'
-    if (state.address) {
-      setAccount({ accountId: state.address });
-    } else {
-      setAccount(null);
-    }
-
-    // Session is less accessible from ATS SDK public API usually, 
-    // but the 'isConnected' and 'address' are the most critical.
-    // If we need the actual session object, we might request it from SDK headers?
-    // For now, we assume basic connectivity.
-  };
+  // Use a ref to hold the service singleton to prevent import race conditions
+  const atsServiceRef = useRef<any>(null);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Initialize Service
+  useEffect(() => {
+    if (!isMounted) return;
+
+    let mounted = true;
+
     const initService = async () => {
-      if (typeof window === 'undefined') return;
-      if (ATSService.isSDKInitialized()) {
-        setIsInitialized(true);
-        syncState();
-        return;
-      }
-
       try {
-        // Initialize without custom events (SDK handles internally)
-        await ATSService.init();
-        setIsInitialized(true);
-        syncState();
+        // Dynamically import inside the effect
+        const { ATSService: Service } = await import('@/lib/hedera/ATSService');
 
-        // If already connected (rehydrated by SDK)
-        if (ATSService.isWalletConnected()) {
-          syncState();
+        // Assign to ref for use in other functions
+        atsServiceRef.current = Service;
+
+        if (!mounted) return;
+
+        // Init logic
+        if (!Service.isSDKInitialized()) {
+          await Service.init();
+        }
+
+        // Sync initial state
+        const state = Service.getWalletState();
+        setIsConnected(state.isConnected);
+        if (state.address) {
+          setAccount({ accountId: state.address });
         }
 
       } catch (err: any) {
         console.error("[WalletContext] Error initializing ATSService:", err);
-        setError("Failed to initialize wallet service");
+        if (mounted) setError("Failed to initialize wallet service");
       }
     };
 
     initService();
-  }, []);
+
+    return () => {
+      mounted = false;
+    };
+  }, [isMounted]);
 
   const connect = async () => {
+    if (!atsServiceRef.current) {
+      setError("Wallet service loading...");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Ensure service is initialized
-      if (!ATSService.isSDKInitialized()) {
-        await ATSService.init();
+      const Service = atsServiceRef.current;
+
+      if (!Service.isSDKInitialized()) {
+        await Service.init();
       }
 
-      await ATSService.connectWallet();
-      syncState();
+      await Service.connectWallet();
+
+      // Sync state after connect
+      const state = Service.getWalletState();
+      setIsConnected(state.isConnected);
+      if (state.address) setAccount({ accountId: state.address });
 
     } catch (err: any) {
       console.error("[WalletContext] Wallet connection error:", err);
@@ -109,8 +117,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const disconnect = async () => {
+    if (!atsServiceRef.current) return;
     try {
-      await ATSService.disconnectWallet();
+      await atsServiceRef.current.disconnectWallet();
       setIsConnected(false);
       setAccount(null);
       setSession(null);
@@ -120,20 +129,17 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-
-
-  // Token operations - proxy to ATSService
-  const associateToken = async (tokenId: string) => {
-    return await ATSService.associateToken(tokenId);
+  // Helper to ensure service is ready before calling methods
+  const withService = async <T,>(fn: (service: any) => Promise<T>): Promise<T> => {
+    if (!atsServiceRef.current) throw new Error("Wallet service not initialized");
+    return fn(atsServiceRef.current);
   };
 
-  const isTokenAssociated = async (tokenId: string) => {
-    return await ATSService.isTokenAssociated(tokenId);
-  };
+  const associateToken = (tokenId: string) => withService<{ success: boolean; transactionId?: string; error?: string }>(s => s.associateToken(tokenId));
+  const isTokenAssociated = (tokenId: string) => withService<boolean>(s => s.isTokenAssociated(tokenId));
+  const getTokenBalance = (tokenId: string) => withService<{ balance: number; decimals: number } | null>(s => s.getTokenBalance(tokenId));
 
-  const getTokenBalance = async (tokenId: string) => {
-    return await ATSService.getTokenBalance(tokenId);
-  };
+
 
   return (
     <WalletContext.Provider
@@ -154,6 +160,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
     </WalletContext.Provider>
   );
 };
+
+// Export with dynamic loading disabled for SSR
+export const WalletProvider = dynamic(
+  () => Promise.resolve(WalletProviderInner),
+  { ssr: false }
+) as typeof WalletProviderInner;
 
 export const useWallet = () => {
   const context = useContext(WalletContext);

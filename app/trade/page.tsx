@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+// Force dynamic rendering - useSearchParams requires it for prerendering
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { companies, tradeModes } from '@/lib/constants';
 import { useAuth } from '@/lib/context/AuthContext';
 
-const TradePage = () => {
+// Wrapper component to use searchParams inside Suspense
+const TradePageContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  
+
   const [symbol, setSymbol] = useState(searchParams?.get('symbol') || 'SCOM');
   const [tradeMode, setTradeMode] = useState('spot');
   const [orderType, setOrderType] = useState('market');
@@ -17,10 +21,10 @@ const TradePage = () => {
   const [amount, setAmount] = useState('');
   const [price, setPrice] = useState('');
   const [activeTab, setActiveTab] = useState('orders');
-  
+
   // Get company data based on symbol
   const company = companies.find(c => c.symbol === symbol) || companies[0];
-  
+
   // Redirect if not logged in
   useEffect(() => {
     if (!user) {
@@ -50,11 +54,10 @@ const TradePage = () => {
             {tradeModes.map((mode) => (
               <button
                 key={mode.id}
-                className={`flex-1 py-2 text-center ${
-                  tradeMode === mode.id
-                    ? 'bg-primary text-white rounded-md'
-                    : 'text-light-100 hover:bg-dark-200 rounded-md'
-                }`}
+                className={`flex-1 py-2 text-center ${tradeMode === mode.id
+                  ? 'bg-primary text-white rounded-md'
+                  : 'text-light-100 hover:bg-dark-200 rounded-md'
+                  }`}
                 onClick={() => {
                   setTradeMode(mode.id);
                   setSide(mode.id === 'spot' ? 'buy' : 'long');
@@ -64,7 +67,7 @@ const TradePage = () => {
               </button>
             ))}
           </div>
-          
+
           {/* Symbol selector */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-light-100 mb-2">
@@ -82,55 +85,51 @@ const TradePage = () => {
               ))}
             </select>
           </div>
-          
+
           {/* Buy/Sell or Long/Short selector */}
           <div className="flex mb-6">
             <button
-              className={`flex-1 py-3 rounded-l-md ${
-                side === (tradeMode === 'spot' ? 'buy' : 'long')
-                  ? 'bg-green-600 text-white'
-                  : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
-              }`}
+              className={`flex-1 py-3 rounded-l-md ${side === (tradeMode === 'spot' ? 'buy' : 'long')
+                ? 'bg-green-600 text-white'
+                : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
+                }`}
               onClick={() => setSide(tradeMode === 'spot' ? 'buy' : 'long')}
             >
               {tradeMode === 'spot' ? 'Buy' : 'Long'}
             </button>
             <button
-              className={`flex-1 py-3 rounded-r-md ${
-                side === (tradeMode === 'spot' ? 'sell' : 'short')
-                  ? 'bg-red-600 text-white'
-                  : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
-              }`}
+              className={`flex-1 py-3 rounded-r-md ${side === (tradeMode === 'spot' ? 'sell' : 'short')
+                ? 'bg-red-600 text-white'
+                : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
+                }`}
               onClick={() => setSide(tradeMode === 'spot' ? 'sell' : 'short')}
             >
               {tradeMode === 'spot' ? 'Sell' : 'Short'}
             </button>
           </div>
-          
+
           {/* Order type selector */}
           <div className="flex mb-6">
             <button
-              className={`flex-1 py-2 rounded-l-md ${
-                orderType === 'market'
-                  ? 'bg-primary text-white'
-                  : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
-              }`}
+              className={`flex-1 py-2 rounded-l-md ${orderType === 'market'
+                ? 'bg-primary text-white'
+                : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
+                }`}
               onClick={() => setOrderType('market')}
             >
               Market
             </button>
             <button
-              className={`flex-1 py-2 rounded-r-md ${
-                orderType === 'limit'
-                  ? 'bg-primary text-white'
-                  : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
-              }`}
+              className={`flex-1 py-2 rounded-r-md ${orderType === 'limit'
+                ? 'bg-primary text-white'
+                : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
+                }`}
               onClick={() => setOrderType('limit')}
             >
               Limit
             </button>
           </div>
-          
+
           {/* Order form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -151,7 +150,7 @@ const TradePage = () => {
                 </span>
               </div>
             </div>
-            
+
             {orderType === 'limit' && (
               <div>
                 <label className="block text-sm font-medium text-light-100 mb-2">
@@ -172,7 +171,7 @@ const TradePage = () => {
                 </div>
               </div>
             )}
-            
+
             <div>
               <label className="block text-sm font-medium text-light-100 mb-2">
                 Total
@@ -189,14 +188,13 @@ const TradePage = () => {
                 </span>
               </div>
             </div>
-            
+
             <button
               type="submit"
-              className={`w-full py-3 rounded-md font-medium ${
-                side === (tradeMode === 'spot' ? 'buy' : 'long')
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-red-600 hover:bg-red-700 text-white'
-              }`}
+              className={`w-full py-3 rounded-md font-medium ${side === (tradeMode === 'spot' ? 'buy' : 'long')
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-red-600 hover:bg-red-700 text-white'
+                }`}
             >
               {side === (tradeMode === 'spot' ? 'buy' : 'long')
                 ? tradeMode === 'spot' ? 'Buy' : 'Long'
@@ -204,7 +202,7 @@ const TradePage = () => {
             </button>
           </form>
         </div>
-        
+
         {/* Right side - Chart and order book */}
         <div className="w-full lg:w-2/3 space-y-6">
           {/* Chart */}
@@ -218,33 +216,31 @@ const TradePage = () => {
               <p className="text-light-200 mt-8">Chart visualization would be displayed here</p>
             </div>
           </div>
-          
+
           {/* Order book / Positions tabs */}
           <div className="bg-dark-100 rounded-lg border border-border">
             {/* Tabs */}
             <div className="flex border-b border-border">
               <button
-                className={`flex-1 py-3 text-center ${
-                  activeTab === 'orders'
-                    ? 'border-b-2 border-primary text-primary'
-                    : 'text-light-100 hover:bg-dark-200/30'
-                }`}
+                className={`flex-1 py-3 text-center ${activeTab === 'orders'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-light-100 hover:bg-dark-200/30'
+                  }`}
                 onClick={() => setActiveTab('orders')}
               >
                 Orders
               </button>
               <button
-                className={`flex-1 py-3 text-center ${
-                  activeTab === 'positions'
-                    ? 'border-b-2 border-primary text-primary'
-                    : 'text-light-100 hover:bg-dark-200/30'
-                }`}
+                className={`flex-1 py-3 text-center ${activeTab === 'positions'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-light-100 hover:bg-dark-200/30'
+                  }`}
                 onClick={() => setActiveTab('positions')}
               >
                 Positions
               </button>
             </div>
-            
+
             {/* Tab content */}
             <div className="p-6">
               {activeTab === 'orders' ? (
@@ -263,5 +259,12 @@ const TradePage = () => {
     </div>
   );
 };
+
+// Main export wraps content in Suspense for useSearchParams
+const TradePage = () => (
+  <Suspense fallback={<div className="container mx-auto px-4 py-8 text-center">Loading...</div>}>
+    <TradePageContent />
+  </Suspense>
+);
 
 export default TradePage;

@@ -1,0 +1,30 @@
+﻿
+> nbxui@0.1.0 build
+> next build --webpack
+
+   Γû▓ Next.js 16.0.6 (webpack)
+   - Environments: .env
+
+   Creating an optimized production build ...
+node.exe : 
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (:String  
+  ) [], RemoteException
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+> Build error occurred
+TypeError: webpack.NormalModu
+leReplacementPlugin is not a 
+constructor
+    at Object.webpack (C:\Use
+rs\Dell\fintech\frontend\next
+.config.compiled.js:121:33)

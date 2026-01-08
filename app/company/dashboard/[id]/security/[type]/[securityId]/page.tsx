@@ -74,8 +74,8 @@ const SecurityDetailPage = () => {
                     ? `/companies/${companyId}/equity/${securityId}`
                     : `/companies/${companyId}/bond/${securityId}`;
 
-                const response = await ApiClient.request(endpoint, { token: token || undefined });
-                setSecurity(response?.data);
+                const response = await ApiClient.request(endpoint, { token: token || undefined }) as { data?: SecurityDetails };
+                setSecurity(response?.data || null);
             } catch (err: any) {
                 console.error('Failed to fetch security:', err);
                 setError(err.message || 'Failed to load security details');
@@ -172,8 +172,8 @@ const SecurityDetailPage = () => {
                         </div>
                         <div className="mt-4 md:mt-0">
                             <span className={`px-4 py-2 rounded-full text-sm ${security.status === 'active'
-                                    ? 'bg-green-500/10 text-green-500'
-                                    : 'bg-yellow-500/10 text-yellow-500'
+                                ? 'bg-green-500/10 text-green-500'
+                                : 'bg-yellow-500/10 text-yellow-500'
                                 }`}>
                                 {security.status}
                             </span>

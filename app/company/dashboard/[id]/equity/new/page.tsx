@@ -198,9 +198,6 @@ const CreateEquityPage = () => {
         regulationType: formData.regulationType,
         regulationSubType: formData.regulationSubType,
 
-        // Payment Tokens
-        paymentTokens: formData.paymentTokens,
-
         // Metadata
         companyName: currentCompany.name,
         companyAccountId: account.accountId,
