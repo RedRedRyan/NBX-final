@@ -3,6 +3,7 @@ import { Schibsted_Grotesk, Martian_Mono } from "next/font/google";
 import LightRays from "@/components/LightRays";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import BottomNav from "@/components/BottomNav";
 import { AuthProvider } from "@/lib/context/AuthContext";
 import { CompanyProvider } from "@/lib/context/CompanyContext";
 import { Wallet } from "lucide-react";
@@ -42,8 +43,10 @@ export default function RootLayout({
           <CompanyProvider>
             <WalletProvider>
               <div className="flex min-h-screen">
-                <Sidebar />
-                <div className="relative flex-1">
+                <div className="hidden md:flex">
+                  <Sidebar />
+                </div>
+                <div className="relative flex-1 pb-20 md:pb-0">
                   <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
                     <LightRays
                       raysOrigin="top-center-offset"
@@ -58,9 +61,10 @@ export default function RootLayout({
                       className="custom-rays"
                     />
                   </div>
-                  <main className="min-h-screen px-6 pt-6 md:px-10">
+                  <main className="min-h-screen px-4 pt-6 md:px-10">
                     {children}
                   </main>
+                  <BottomNav />
                 </div>
               </div>
             </WalletProvider>

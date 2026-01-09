@@ -64,8 +64,8 @@ const HomePage = () => {
       </div>
 
       {/* Hero Section */}
-      <div className="top-grid mt-24">
-        <div className="md:col-span-9">
+      <div className="top-grid mt-24 grid grid-cols-12 gap-8">
+        <div className="col-span-12 md:col-span-9">
           <div className="noisy" />
           <h1 className="text-6xl font-bold mt-10 text-center">Invest in Kenya</h1>
           <p className="text-center mt-4 font-mono text-lg">
@@ -120,21 +120,23 @@ const HomePage = () => {
         </div>
 
         {/* Right Image */}
-        <div className="md:col-span-3">
+        <div className="col-span-12 md:col-span-3 flex justify-center items-center">
           <div className="noisy" />
-          <img
-            src="/images/obzebra.png"
-            alt="grid-img-5"
-            style={{ objectFit: "contain" }}
-          />
+          <div className="p-4 w-full flex justify-center">
+            <img
+              src="/images/obzebra.png"
+              alt="grid-img-5"
+              className="w-full max-w-[300px] h-auto object-contain"
+            />
+          </div>
         </div>
 
         {/* Map and Info Row */}
-        <div className="md:col-span-9 bg-transparent ">
+        <div className="col-span-12 md:col-span-9 bg-transparent relative min-h-[300px]">
           <div className="noisy " />
-          <img src="/icons/mapbase.svg" alt="grid-img-5" className="" />
+          <img src="/icons/mapbase.svg" alt="grid-img-5" className="w-full h-full object-cover opacity-80" />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
-            <h2 id="AnyText">Anywhere Anytime</h2>
+            <h2 id="AnyText" className="text-3xl md:text-4xl">Anywhere Anytime</h2>
             <p className="max-w-lg text-white">
               NBX democratizes investing by turning company shares into security tokens
             </p>
@@ -142,9 +144,9 @@ const HomePage = () => {
         </div>
 
         {/* Key Features */}
-        <div className="md:col-span-3 hover:bg-primary hover:text-black transition-all duration-300 ease-in-out rounded-lg p-6">
-          <div className="lg:mt-14 lg:text-2xl md:text-2xl text-center">
-            <ul>
+        <div className="col-span-12 md:col-span-3 hover:bg-primary hover:text-black transition-all duration-300 ease-in-out rounded-lg p-6 border border-gray-800">
+          <div className="lg:mt-14 lg:text-2xl md:text-2xl text-xl text-center">
+            <ul className="space-y-4">
               <li>Fractional ownerships</li>
               <li>Instant Settlements</li>
               <li>Borderless investment</li>
@@ -154,9 +156,9 @@ const HomePage = () => {
       </div>
 
       {/* Features Grid */}
-      <div className="middle-grid">
+      <div className="middle-grid mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {features.map((feature, index) => (
-          <div key={index} className="md:col-span-3">
+          <div key={index} className="col-span-1">
             <div className="feature-card p-6 backdrop-brightness-50 rounded-lg border border-primary h-full">
               <div className="feature-icon">
                 <img
@@ -175,16 +177,16 @@ const HomePage = () => {
       </div>
 
       {/* SMEs Big Six Section */}
-      <div className="bigsix-grid">
-        <div className="md:col-span-6 text-center ">
-          <h2 className="text-6xl font-bold mt-12">SMEs Big Six</h2>
+      <div className="bigsix-grid mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+        <div className="col-span-1 md:col-span-2 lg:col-span-6 text-center mb-8">
+          <h2 className="text-4xl md:text-6xl font-bold mt-12">SMEs Big Six</h2>
           <p className="mt-4">An index of the 6 most promising companies</p>
         </div>
 
         {topCompanies.map((company) => (
           <div
             key={company.symbol}
-            className="border-t-3 border-white rounded-lg p-4 flex items-center md:col-span-3"
+            className="border-t-3 border-white rounded-lg p-4 flex items-center col-span-1 md:col-span-1 lg:col-span-3"
             style={{ backgroundColor: company.bgColor }}
           >
             <div>

@@ -136,7 +136,7 @@ const MarketsPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header with search and profile */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold">
             {activeFilter === 'premarket' ? 'IPO & New Offerings' : 'Markets'}
@@ -148,15 +148,15 @@ const MarketsPage = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full md:w-auto">
           {/* Search bar */}
-          <div className="relative">
+          <div className="relative w-full md:w-auto">
             <input
               type="text"
               placeholder={activeFilter === 'premarket' ? "Search IPOs..." : "Search markets..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-dark-200 border border-border rounded-md py-2 px-4 pl-10 w-64"
+              className="bg-dark-200 border border-border rounded-md py-2 px-4 pl-10 w-full md:w-64"
             />
             <svg
               className="absolute left-3 top-2.5 h-5 w-5 text-light-200"
@@ -175,7 +175,7 @@ const MarketsPage = () => {
           </div>
 
           {/* Profile icon */}
-          <div className="w-10 h-10 bg-dark-200 rounded-full flex items-center justify-center cursor-pointer">
+          <div className="hidden md:flex w-10 h-10 bg-dark-200 rounded-full items-center justify-center cursor-pointer flex-shrink-0">
             <span className="text-sm font-medium">
               {emailInitial}
             </span>
@@ -189,10 +189,10 @@ const MarketsPage = () => {
           <button
             key={filter.id}
             className={`px-4 py-2 rounded-md whitespace-nowrap ${activeFilter === filter.id
-                ? filter.id === 'premarket'
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                  : 'bg-primary text-white'
-                : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
+              ? filter.id === 'premarket'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                : 'bg-primary text-white'
+              : 'bg-dark-200 text-light-100 hover:bg-dark-200/80'
               }`}
             onClick={() => setActiveFilter(filter.id)}
           >
