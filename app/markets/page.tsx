@@ -484,7 +484,7 @@ const MarketsPage = () => {
                   {selectedSecurity.company.documents.map((doc, idx) => (
                     <a
                       key={idx}
-                      href={`${process.env.NEXT_PUBLIC_API_URL || 'https://nbx-backend.duckdns.org'${doc.url}`}
+                      href={`${process.env.NEXT_PUBLIC_API_URL || 'https://nbx-backend.duckdns.org'}${doc.url}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center space-x-3 p-3 bg-dark-200 rounded-lg hover:bg-dark-200/80 transition-colors"
