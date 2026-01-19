@@ -43,7 +43,12 @@ const HomePage = () => {
       <ParticlesBackground />
 
       {/* Ticker Bar */}
-      <div className="ticker">
+      
+
+      {/* Hero Section */}
+      <div className="top-grid">
+        <div className="tick">
+          <div className="ticker ">
         <div className="ticker-track">
           {tickerItems.map((company, index) => {
             const isPositive = company.change24h >= 0;
@@ -62,9 +67,8 @@ const HomePage = () => {
           })}
         </div>
       </div>
-
-      {/* Hero Section */}
-      <div className="top-grid mt-24 grid grid-cols-12 gap-8">
+        </div>
+        
         <div className="col-span-12 md:col-span-9">
           <div className="noisy" />
           <h1 className="text-6xl font-bold mt-10 text-center">Invest in Kenya</h1>

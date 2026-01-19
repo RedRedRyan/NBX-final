@@ -230,6 +230,15 @@ const MarketsPage = () => {
                         <span className={`text-xs px-2 py-1 rounded-full ${security.type === 'equity' ? 'bg-blue-500/30 text-blue-300' : 'bg-green-500/30 text-green-300'}`}>
                           {security.type === 'equity' ? 'EQUITY' : 'BOND'}
                         </span>
+                        <a
+                          href={`https://hashscan.io/testnet/address/${security.assetAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                          className="ml-2 text-xs text-light-200 hover:text-primary transition-colors"
+                        >
+                          {security.assetAddress}
+                        </a>
                         <h3 className="text-lg font-bold mt-2">{security.name}</h3>
                         <p className="text-sm text-light-200">{security.symbol}</p>
                       </div>

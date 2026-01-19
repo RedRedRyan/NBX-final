@@ -35,12 +35,14 @@ const Sidebar = () => {
         { href: `/company/dashboard/${companyId}`, label: "Dashboard", icon: "/icons/market.png" },
         { href: `/company/dashboard/${companyId}/equity/new`, label: "Issue Equity", icon: "/icons/earn.png" },
         { href: `/company/dashboard/${companyId}/bond/new`, label: "Issue Bonds", icon: "/icons/trade.png" },
+        { href: `/company/dashboard/${companyId}/actions`, label: "Corporate Actions", icon: "/icons/market.png" },
         { href: "/wallet", label: "Wallet", icon: "/icons/wallet.png" },
       ]
     }
 
     // Investor user navigation (default)
     return [
+      { href: "/dashboard", label: "Dashboard", icon: "/icons/market.png" },
       { href: "/markets", label: "Markets", icon: "/icons/market.png" },
       { href: "/trade", label: "Trade", icon: "/icons/trade.png" },
       { href: "/earn", label: "Earn", icon: "/icons/earn.png" },
