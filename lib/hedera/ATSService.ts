@@ -669,10 +669,14 @@ class ATSServiceClass {
                 ? this.config.bondConfigId
                 : `0x${this.config.bondConfigId.padStart(64, '0')}`;
 
-            // Format dates as ISO strings
+            // Format dates as Unix timestamp strings (seconds)
             const startingDate = params.startingDate || new Date();
-            const startingDateStr = startingDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-            const maturityDateStr = params.maturityDate.toISOString().split('T')[0];
+            // IMPORTANT: SDK validation uses parseInt() which requires seconds timestamp, not ISO string
+            const startingDateTimestamp = Math.floor(startingDate.getTime() / 1000).toString();
+            // Also keep ISO format for metadata
+            const startingDateISO = startingDate.toISOString().split('T')[0];
+
+            const maturityDateTimestamp = Math.floor(params.maturityDate.getTime() / 1000).toString();
 
             // Use numberOfUnits or fallback to totalSupply for legacy support
             const numberOfUnits = params.numberOfUnits || params.totalSupply || '1000';
@@ -713,9 +717,9 @@ class ATSServiceClass {
                 nominalValue: params.nominalValue,
                 nominalValueDecimals: 2,
 
-                // Dates - using YYYY-MM-DD format
-                startingDate: startingDateStr,
-                maturityDate: maturityDateStr,
+                // Dates - using Unix timestamp seconds for SDK validation
+                startingDate: startingDateTimestamp,
+                maturityDate: maturityDateTimestamp,
 
                 // Regulation Configuration
                 regulationType,
@@ -729,7 +733,7 @@ class ATSServiceClass {
                     companyAccountId: params.companyAccountId,
                     couponFrequency: 4, // Quarterly
                     couponRate: params.couponRate.toString(),
-                    firstCouponDate: startingDateStr,
+                    firstCouponDate: startingDateISO, // Use ISO format for metadata
                 }),
 
                 // Required Configuration IDs

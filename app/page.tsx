@@ -43,32 +43,31 @@ const HomePage = () => {
       <ParticlesBackground />
 
       {/* Ticker Bar */}
-      
+
 
       {/* Hero Section */}
       <div className="top-grid">
         <div className="tick">
           <div className="ticker ">
-        <div className="ticker-track">
-          {tickerItems.map((company, index) => {
-            const isPositive = company.change24h >= 0;
-            const formattedChange = `${isPositive ? "+" : ""}${company.change24h}%`;
-            return (
-              <div key={`${company.symbol}-${index}`} className="ticker-item">
-                <span className="symbol">{company.symbol}</span>
-                <span className="price">{company.price.toFixed(2)} KES</span>
-                <span
-                  className={isPositive ? "change-positive" : "change-negative"}
-                >
-                  {formattedChange}
-                </span>
-              </div>
-            );
-          })}
+            <div className="ticker-track">
+              {tickerItems.map((company, index) => {
+                const isPositive = company.change24h >= 0;
+                const formattedChange = `${isPositive ? "+" : ""}${company.change24h}%`;
+                return (
+                  <div key={`${company.symbol}-${index}`} className="ticker-item">
+                    <span className="symbol">{company.symbol}</span>
+                    <span className="price">{company.price.toFixed(2)} KES</span>
+                    <span
+                      className={isPositive ? "change-positive" : "change-negative"}
+                    >
+                      {formattedChange}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
-        </div>
-        
         <div className="col-span-12 md:col-span-9">
           <div className="noisy" />
           <h1 className="text-6xl font-bold mt-10 text-center">Invest in Kenya</h1>
