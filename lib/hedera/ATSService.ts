@@ -213,7 +213,19 @@ class ATSServiceClass {
             await Network.init(initRequest);
             this.isInitialized = true;
             console.log('[ATS] SDK initialized successfully');
-        } catch (error) {
+        } catch (error: any) {
+            // Check for specific Metamask connection error that happens on some browsers/states
+            // This error shouldn't block the entire SDK initialization if other parts (Mirror/RPC) worked
+            if (error?.message && (
+                error.message.includes('Metamask is not connected') ||
+                error.message.includes('An error ocurred while connecting to the wallet')
+            )) {
+                console.warn('[ATS] Wallet auto-connect warning (non-fatal):', error.message);
+                // We consider it initialized enough to work, just without an active wallet
+                this.isInitialized = true;
+                return;
+            }
+
             console.error('[ATS] SDK initialization error:', error);
             throw error;
         }
