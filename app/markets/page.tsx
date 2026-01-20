@@ -231,7 +231,7 @@ const MarketsPage = () => {
                           {security.type === 'equity' ? 'EQUITY' : 'BOND'}
                         </span>
                         <a
-                          href={`https://hashscan.io/testnet/address/${security.assetAddress}`}
+                          href={`https://hashscan.io/testnet/contract/${security.assetAddress}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e: React.MouseEvent) => e.stopPropagation()}
