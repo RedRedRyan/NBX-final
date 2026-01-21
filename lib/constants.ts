@@ -289,7 +289,7 @@ export const KESY_TOKEN = {
   symbol: "KESy",
   name: "Kenyan Shilling Stablecoin",
   decimals: 6, // Default, will be fetched from mirror node
-  icon: "/kes.jpg", // KES stablecoin icon
+  icon: "/kesy.jpg", // KES stablecoin icon
   network: "testnet",
 };
 
