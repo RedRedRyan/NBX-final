@@ -19,7 +19,7 @@ export default function InvestButton({
     treasuryAccountId,
     amount,
     totalPrice,
-    backendUrl = 'http://localhost:3000', // Default to localhost, should be env var in prod
+    backendUrl = 'https://nbx-backend.duckdns.org', // Default to localhost, should be env var in prod
     onSuccess
 }: InvestButtonProps) {
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
