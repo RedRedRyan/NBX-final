@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { useCompany } from '@/lib/context/CompanyContext';
 import { ApiClient } from '@/lib/api/client';
 import Link from 'next/link';
+import MintButton from '@/components/MintButton';
 
 // Security type for both equities and bonds
 interface Security {
@@ -31,6 +32,17 @@ const CompanyDashboardPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [securities, setSecurities] = useState<Security[]>([]);
   const [securitiesLoading, setSecuritiesLoading] = useState(false);
+
+  // Callback to refresh data upon successful mint
+  const handleMintSuccess = (securityId: string, type: string) => {
+    // Refresh company data and securities list
+    if (companyId) {
+      fetchCompanyById(companyId);
+      // Trigger a re-fetch of securities by toggling/resetting tab or separate state
+      // For now, simple company fetch re-triggers some updates or we can force reload
+      window.location.reload(); // Simplest way to ensuring everything syncs up for now
+    }
+  };
 
   // Fetch company data on mount
   useEffect(() => {
@@ -345,6 +357,19 @@ const CompanyDashboardPage = () => {
                           </svg>
                         </div>
                       </div>
+
+                      {/* Mint Action for Equity */}
+                      {
+                        security.type === 'equity' && (
+                          <div className="mt-2 flex justify-end" onClick={(e) => e.preventDefault()}>
+                            <MintButton
+                              securityAddress={security.assetAddress}
+                              amountToMint={100}
+                              onSuccess={() => handleMintSuccess(security.assetAddress, security.type)}
+                            />
+                          </div>
+                        )
+                      }
                     </Link>
                   ))}
                 </div>
@@ -421,7 +446,7 @@ const CompanyDashboardPage = () => {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };
 

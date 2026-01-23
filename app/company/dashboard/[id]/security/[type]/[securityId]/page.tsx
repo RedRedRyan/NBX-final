@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { ApiClient } from '@/lib/api/client';
 import Link from 'next/link';
+import EnableTradingButton from '@/components/EnableTradingButton';
 
 interface SecurityDetails {
     _id: string;
@@ -170,7 +171,13 @@ const SecurityDetailPage = () => {
                                 <p className="text-light-100 mt-1">{security.symbol} • {security.assetAddress}</p>
                             </div>
                         </div>
-                        <div className="mt-4 md:mt-0">
+                        <div className="mt-4 md:mt-0 flex items-center gap-3">
+                            {isEquity && (
+                                <EnableTradingButton
+                                    tokenId={security.assetAddress}
+                                    totalSupply={security.totalSupply}
+                                />
+                            )}
                             <span className={`px-4 py-2 rounded-full text-sm ${security.status === 'active'
                                 ? 'bg-green-500/10 text-green-500'
                                 : 'bg-yellow-500/10 text-yellow-500'

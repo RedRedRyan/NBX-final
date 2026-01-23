@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { companies, marketFilters } from '@/lib/constants';
 import { useAuth } from '@/lib/context/AuthContext';
 import { ApiClient } from '@/lib/api/client';
+import InvestButton from '@/components/Marketplace/InvestButton';
 
 // Security interface for IPO listings
 interface Security {
@@ -23,6 +24,8 @@ interface Security {
   maturityDate?: string;
   status: string;
   tokenizedAt: string;
+  treasuryAccountId?: string;
+  paymentTokens?: string[];
   company: {
     id: string;
     name: string;
@@ -58,6 +61,9 @@ const MarketsPage = () => {
   const [securitiesLoading, setSecuritiesLoading] = useState(false);
   const [selectedSecurity, setSelectedSecurity] = useState<Security | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Investment state
+  const [investAmount, setInvestAmount] = useState<number>(10);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -126,7 +132,16 @@ const MarketsPage = () => {
 
   const handleViewDetails = (security: Security) => {
     setSelectedSecurity(security);
+    setInvestAmount(10); // Default amount
     setShowDetailModal(true);
+  };
+
+  const calculateTotalPrice = () => {
+    if (!selectedSecurity) return 0;
+    // Simple parsing of nominal value string "100" -> 100
+    // If nominalValue contains non-numeric chars, this might need refinement
+    const price = parseFloat(selectedSecurity.nominalValue) || 0;
+    return investAmount * price;
   };
 
   if (!user) {
@@ -300,7 +315,7 @@ const MarketsPage = () => {
                       View Details
                     </button>
                     <button
-                      onClick={() => router.push(`/trade?symbol=${security.symbol}&type=${security.type}`)}
+                      onClick={() => handleViewDetails(security)}
                       className="flex-1 py-2 px-4 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-medium transition-colors"
                     >
                       Invest Now
@@ -416,6 +431,47 @@ const MarketsPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
+              </div>
+            </div>
+
+            {/* Investment Input Section */}
+            <div className="p-6 border-b border-border bg-dark-200/50">
+              <h3 className="text-lg font-semibold mb-4">Investment</h3>
+              <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="w-full md:w-1/3">
+                  <label className="block text-sm text-light-200 mb-1">
+                    Amount ({selectedSecurity.type === 'equity' ? 'Shares' : 'Units'})
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={investAmount}
+                    onChange={(e) => setInvestAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                    className="w-full bg-dark-100 border border-border rounded-lg px-4 py-2 focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div className="w-full md:w-1/3">
+                  <label className="block text-sm text-light-200 mb-1">Total Cost</label>
+                  <div className="w-full bg-dark-100 border border-transparent rounded-lg px-4 py-2 text-light-100">
+                    ≈ {calculateTotalPrice().toLocaleString()} {selectedSecurity.currency}
+                  </div>
+                </div>
+                <div className="w-full md:w-1/3">
+                  {selectedSecurity.treasuryAccountId ? (
+                    <InvestButton
+                      equityTokenId={selectedSecurity.assetAddress}
+                      stableCoinId={selectedSecurity.paymentTokens?.[0] || '0.0.7228867'}
+                      treasuryAccountId={selectedSecurity.treasuryAccountId}
+                      amount={investAmount}
+                      totalPrice={calculateTotalPrice()}
+                      onSuccess={(tx) => console.log('Invested!', tx)}
+                    />
+                  ) : (
+                    <button disabled className="w-full py-2 px-4 bg-gray-600 rounded-lg cursor-not-allowed text-sm">
+                      Setup Incomplete
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -543,15 +599,6 @@ const MarketsPage = () => {
                 className="flex-1 py-3 px-6 bg-dark-200 hover:bg-dark-200/80 text-white rounded-lg font-medium transition-colors"
               >
                 Close
-              </button>
-              <button
-                onClick={() => {
-                  setShowDetailModal(false);
-                  router.push(`/trade?symbol=${selectedSecurity.symbol}&type=${selectedSecurity.type}`);
-                }}
-                className="flex-1 py-3 px-6 bg-primary hover:bg-primary/90 text-white rounded-lg font-medium transition-colors"
-              >
-                Invest Now
               </button>
             </div>
           </div>
