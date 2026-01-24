@@ -6,6 +6,9 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { ApiClient } from '@/lib/api/client';
 import Link from 'next/link';
 import EnableTradingButton from '@/components/EnableTradingButton';
+import MintButton from '@/components/MintButton';
+import GrantRoleButton from '@/components/GrantRoleButton';
+import ATSService from '@/lib/hedera/ATSService';
 
 interface SecurityDetails {
     _id: string;
@@ -57,6 +60,9 @@ const SecurityDetailPage = () => {
     const [security, setSecurity] = useState<SecurityDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [htsTokenId, setHtsTokenId] = useState<string | null>(null);
+    const [mintedAmount, setMintedAmount] = useState<number>(0);
+    const [mintedPercentage, setMintedPercentage] = useState<number>(0);
 
     // Mock shareholders data
     const [shareholders] = useState<Shareholder[]>([
@@ -87,6 +93,39 @@ const SecurityDetailPage = () => {
 
         fetchSecurity();
     }, [companyId, securityId, securityType, token]);
+
+    // Fetch additional security info (Token ID, minted percentage)
+    useEffect(() => {
+        const fetchSecurityInfo = async () => {
+            if (!security?.assetAddress) return;
+
+            try {
+                // Try to get security info from the SDK
+                const info = await ATSService.getSecurityInfo(security.assetAddress);
+                if (info.tokenId) {
+                    setHtsTokenId(info.tokenId);
+                }
+
+                // Calculate minted percentage by summing all holder balances
+                // Using the shareholding data (in production, this would come from Mirror Node)
+                const totalMinted = shareholders.reduce(
+                    (sum, holder) => sum + Number(holder.balance),
+                    0
+                );
+                const totalSupply = Number(security.totalSupply);
+
+                if (totalSupply > 0) {
+                    setMintedAmount(totalMinted);
+                    setMintedPercentage((totalMinted / totalSupply) * 100);
+                }
+            } catch (err) {
+                console.error('Failed to fetch security info:', err);
+            }
+        };
+
+        fetchSecurityInfo();
+    }, [security?.assetAddress, security?.totalSupply, shareholders]);
+
 
     if (isLoading) {
         return (
@@ -171,7 +210,16 @@ const SecurityDetailPage = () => {
                                 <p className="text-light-100 mt-1">{security.symbol} • {security.assetAddress}</p>
                             </div>
                         </div>
-                        <div className="mt-4 md:mt-0 flex items-center gap-3">
+                        <div className="mt-4 md:mt-0 flex items-center gap-3 flex-wrap">
+                            <GrantRoleButton
+                                securityAddress={security.assetAddress}
+                                onSuccess={() => window.location.reload()}
+                            />
+                            <MintButton
+                                securityAddress={security.assetAddress}
+                                amountToMint={100}
+                                onSuccess={() => window.location.reload()}
+                            />
                             {isEquity && (
                                 <EnableTradingButton
                                     tokenId={security.assetAddress}
@@ -189,12 +237,45 @@ const SecurityDetailPage = () => {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
                     <div className="bg-dark-200 border border-border rounded-lg p-6">
                         <p className="text-sm text-light-100 mb-2">Total Supply</p>
                         <p className="text-2xl font-bold text-white font-mono">
                             {Number(security.totalSupply).toLocaleString()}
                         </p>
+                    </div>
+
+                    <div className="bg-dark-200 border border-border rounded-lg p-6">
+                        <p className="text-sm text-light-100 mb-2">Minted %</p>
+                        <div className="flex items-end gap-2">
+                            <p className="text-2xl font-bold text-white font-mono">
+                                {mintedPercentage.toFixed(1)}%
+                            </p>
+                        </div>
+                        <div className="mt-2 w-full bg-dark-100 rounded-full h-2">
+                            <div
+                                className="h-2 rounded-full bg-green-500 transition-all duration-500"
+                                style={{ width: `${Math.min(mintedPercentage, 100)}%` }}
+                            ></div>
+                        </div>
+                        <p className="text-xs text-light-200 mt-1">
+                            {mintedAmount.toLocaleString()} minted
+                        </p>
+                    </div>
+
+                    <div className="bg-dark-200 border border-border rounded-lg p-6">
+                        <p className="text-sm text-light-100 mb-2">Token ID</p>
+                        <p className="text-lg font-bold text-white font-mono truncate" title={htsTokenId || security.assetAddress}>
+                            {htsTokenId || security.assetAddress}
+                        </p>
+                        <a
+                            href={`https://hashscan.io/testnet/token/${htsTokenId || security.assetAddress}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline mt-1 inline-block"
+                        >
+                            View on HashScan →
+                        </a>
                     </div>
 
                     <div className="bg-dark-200 border border-border rounded-lg p-6">
@@ -218,6 +299,7 @@ const SecurityDetailPage = () => {
                         </p>
                     </div>
                 </div>
+
 
                 {/* Shareholding Section */}
                 <div className="bg-dark-200 border border-border rounded-lg p-6 mb-8">

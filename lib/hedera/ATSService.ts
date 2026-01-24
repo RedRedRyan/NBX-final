@@ -1243,6 +1243,64 @@ class ATSServiceClass {
     }
 
     /**
+     * Get security info including the underlying HTS Token ID.
+     * This queries the security diamond contract to retrieve token details.
+     * @param securityId - The Diamond/Contract Address (0.0.xxxxx)
+     */
+    async getSecurityInfo(securityId: string): Promise<{
+        tokenId?: string;
+        name?: string;
+        symbol?: string;
+        supply?: string;
+        decimals?: number;
+        error?: string;
+    }> {
+        if (!this.isInitialized) await this.init();
+
+        try {
+            const { Security, GetSecurityInfoRequest } = await this.getSDK() as any;
+
+            console.log(`[ATS] Fetching security info for ${securityId}...`);
+
+            const request = new GetSecurityInfoRequest({
+                securityId: securityId,
+            });
+
+            const result = await Security.getInfo(request);
+            console.log('[ATS] Security info:', result);
+
+            return {
+                tokenId: result.underlyingAsset || result.tokenId || securityId,
+                name: result.name,
+                symbol: result.symbol,
+                supply: result.totalSupply?.toString(),
+                decimals: result.decimals,
+            };
+        } catch (sdkError: any) {
+            console.warn('[ATS] SDK getInfo failed, trying Mirror Node fallback:', sdkError.message);
+
+            // Fallback: Try fetching from Mirror Node using the contract ID
+            try {
+                const mirrorUrl = this.config.mirrorNode.baseUrl;
+                const contractResp = await fetch(`${mirrorUrl}/api/v1/contracts/${securityId}`);
+
+                if (contractResp.ok) {
+                    const contractData = await contractResp.json();
+                    console.log('[ATS] Contract data from Mirror Node:', contractData.contract_id);
+                }
+
+                // Return the securityId as the token reference (diamond address)
+                return {
+                    tokenId: securityId,
+                };
+            } catch (mirrorError: any) {
+                console.error('[ATS] Mirror Node fallback failed:', mirrorError);
+                return { error: mirrorError.message || 'Failed to get security info' };
+            }
+        }
+    }
+
+    /**
      * Associate wallet with a token (required before receiving HTS tokens)
      * Uses Hedera SDK TokenAssociateTransaction with WalletConnect signing
      * @param tokenId - The Hedera token ID (e.g., "0.0.7228867")

@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { useCompany } from '@/lib/context/CompanyContext';
 import { ApiClient } from '@/lib/api/client';
 import Link from 'next/link';
-import MintButton from '@/components/MintButton';
 
 // Security type for both equities and bonds
 interface Security {
@@ -33,14 +32,12 @@ const CompanyDashboardPage = () => {
   const [securities, setSecurities] = useState<Security[]>([]);
   const [securitiesLoading, setSecuritiesLoading] = useState(false);
 
-  // Callback to refresh data upon successful mint
-  const handleMintSuccess = (securityId: string, type: string) => {
+  // Callback to refresh data upon successful operations
+  const handleSecurityRefresh = () => {
     // Refresh company data and securities list
     if (companyId) {
       fetchCompanyById(companyId);
-      // Trigger a re-fetch of securities by toggling/resetting tab or separate state
-      // For now, simple company fetch re-triggers some updates or we can force reload
-      window.location.reload(); // Simplest way to ensuring everything syncs up for now
+      window.location.reload();
     }
   };
 
@@ -358,18 +355,6 @@ const CompanyDashboardPage = () => {
                         </div>
                       </div>
 
-                      {/* Mint Action for Equity */}
-                      {
-                        security.type === 'equity' && (
-                          <div className="mt-2 flex justify-end" onClick={(e) => e.preventDefault()}>
-                            <MintButton
-                              securityAddress={security.assetAddress}
-                              amountToMint={100}
-                              onSuccess={() => handleMintSuccess(security.assetAddress, security.type)}
-                            />
-                          </div>
-                        )
-                      }
                     </Link>
                   ))}
                 </div>
