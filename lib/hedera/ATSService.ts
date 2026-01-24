@@ -1214,17 +1214,18 @@ class ATSServiceClass {
         if (!this.isInitialized) await this.init();
 
         try {
-            const { Security, GrantRoleRequest } = await this.getSDK() as any;
+            // SDK exports Role module with grantRole method, and RoleRequest class
+            const { Role, RoleRequest } = await this.getSDK() as any;
 
             console.log(`[ATS] Granting role ${role} on ${securityId} to ${targetId}...`);
 
-            const request = new GrantRoleRequest({
+            const request = new RoleRequest({
                 securityId: securityId,
                 targetId: targetId,
                 role: role
             });
 
-            const result = await Security.grantRole(request);
+            const result = await Role.grantRole(request);
 
             console.log('[ATS] Grant role successful:', result);
 
