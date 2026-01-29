@@ -1477,6 +1477,222 @@ class ATSServiceClass {
             return null;
         }
     }
+
+    /**
+     * Get list of accounts that have a specific role on a security.
+     * @param securityId - The Diamond/Contract Address
+     * @param role - The role to query (name or hex value)
+     * @param start - Start index for pagination
+     * @param end - End index for pagination
+     */
+    async getRoleMembers(
+        securityId: string,
+        role: string,
+        start: number = 0,
+        end: number = 100
+    ): Promise<{ success: boolean; members?: string[]; error?: string }> {
+        if (!this.isInitialized) await this.init();
+
+        try {
+            const { Role, GetRoleMembersRequest } = await this.getSDK() as any;
+
+            // Resolve role name to hex value if needed
+            let roleHex = role;
+            if (!role.startsWith('0x')) {
+                const roleKey = role.toUpperCase().replace(/^_/, '') as SecurityRoleKey;
+                if (SecurityRole[roleKey]) {
+                    roleHex = SecurityRole[roleKey];
+                } else {
+                    throw new Error(`Unknown role: ${role}`);
+                }
+            }
+
+            const request = new GetRoleMembersRequest({
+                securityId,
+                role: roleHex,
+                start,
+                end
+            });
+
+            const members = await Role.getRoleMembers(request);
+            console.log(`[ATS] Got ${members.length} members for role ${role}`);
+
+            return { success: true, members };
+        } catch (error: any) {
+            console.error('[ATS] Get role members error:', error);
+            return { success: false, error: error.message || 'Failed to get role members' };
+        }
+    }
+
+    /**
+     * Get count of accounts that have a specific role on a security.
+     * @param securityId - The Diamond/Contract Address
+     * @param role - The role to query (name or hex value)
+     */
+    async getRoleMemberCount(
+        securityId: string,
+        role: string
+    ): Promise<{ success: boolean; count?: number; error?: string }> {
+        if (!this.isInitialized) await this.init();
+
+        try {
+            const { Role, GetRoleMemberCountRequest } = await this.getSDK() as any;
+
+            let roleHex = role;
+            if (!role.startsWith('0x')) {
+                const roleKey = role.toUpperCase().replace(/^_/, '') as SecurityRoleKey;
+                if (SecurityRole[roleKey]) {
+                    roleHex = SecurityRole[roleKey];
+                } else {
+                    throw new Error(`Unknown role: ${role}`);
+                }
+            }
+
+            const request = new GetRoleMemberCountRequest({
+                securityId,
+                role: roleHex
+            });
+
+            const count = await Role.getRoleMemberCount(request);
+            console.log(`[ATS] Role ${role} has ${count} members`);
+
+            return { success: true, count };
+        } catch (error: any) {
+            console.error('[ATS] Get role member count error:', error);
+            return { success: false, error: error.message || 'Failed to get role member count' };
+        }
+    }
+
+    /**
+     * Apply multiple roles to an account at once.
+     * @param securityId - The Diamond/Contract Address
+     * @param targetId - The account to modify roles for
+     * @param roles - Array of role names or hex values
+     * @param actives - Array of booleans (true = grant, false = revoke)
+     */
+    async applyRoles(
+        securityId: string,
+        targetId: string,
+        roles: string[],
+        actives: boolean[]
+    ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+        if (!this.isInitialized) await this.init();
+
+        try {
+            const { Role, ApplyRolesRequest } = await this.getSDK() as any;
+
+            // Convert role names to hex values
+            const roleHexes = roles.map(role => {
+                if (role.startsWith('0x')) return role;
+                const roleKey = role.toUpperCase().replace(/^_/, '') as SecurityRoleKey;
+                if (SecurityRole[roleKey]) return SecurityRole[roleKey];
+                throw new Error(`Unknown role: ${role}`);
+            });
+
+            console.log(`[ATS] Applying ${roles.length} roles to ${targetId} on ${securityId}`);
+
+            const request = new ApplyRolesRequest({
+                securityId,
+                targetId,
+                roles: roleHexes,
+                actives
+            });
+
+            const result = await Role.applyRoles(request);
+            console.log('[ATS] Apply roles successful:', result);
+
+            return { success: true, transactionId: result.transactionId };
+        } catch (error: any) {
+            console.error('[ATS] Apply roles error:', error);
+            return { success: false, error: error.message || 'Failed to apply roles' };
+        }
+    }
+
+    /**
+     * Revoke a role from an account on the security token.
+     * @param securityId - The Diamond/Contract Address
+     * @param targetId - The account to revoke the role from
+     * @param role - The role to revoke
+     */
+    async revokeSecurityRole(
+        securityId: string,
+        targetId: string,
+        role: string
+    ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+        if (!this.isInitialized) await this.init();
+
+        try {
+            const { Role, RoleRequest } = await this.getSDK() as any;
+
+            let roleHex = role;
+            if (!role.startsWith('0x')) {
+                const roleKey = role.toUpperCase().replace(/^_/, '') as SecurityRoleKey;
+                if (SecurityRole[roleKey]) {
+                    roleHex = SecurityRole[roleKey];
+                } else {
+                    throw new Error(`Unknown role: ${role}`);
+                }
+            }
+
+            console.log(`[ATS] Revoking role ${role} from ${targetId} on ${securityId}...`);
+
+            const request = new RoleRequest({
+                securityId,
+                targetId,
+                role: roleHex
+            });
+
+            const result = await Role.revokeRole(request);
+            console.log('[ATS] Revoke role successful:', result);
+
+            return { success: true, transactionId: result.transactionId };
+        } catch (error: any) {
+            console.error('[ATS] Revoke role error:', error);
+            return { success: false, error: error.message || 'Failed to revoke role' };
+        }
+    }
+
+    /**
+     * Check if an account has a specific role on the security.
+     * @param securityId - The Diamond/Contract Address
+     * @param targetId - The account to check
+     * @param role - The role to check for
+     */
+    async hasSecurityRole(
+        securityId: string,
+        targetId: string,
+        role: string
+    ): Promise<{ success: boolean; hasRole?: boolean; error?: string }> {
+        if (!this.isInitialized) await this.init();
+
+        try {
+            const { Role, RoleRequest } = await this.getSDK() as any;
+
+            let roleHex = role;
+            if (!role.startsWith('0x')) {
+                const roleKey = role.toUpperCase().replace(/^_/, '') as SecurityRoleKey;
+                if (SecurityRole[roleKey]) {
+                    roleHex = SecurityRole[roleKey];
+                } else {
+                    throw new Error(`Unknown role: ${role}`);
+                }
+            }
+
+            const request = new RoleRequest({
+                securityId,
+                targetId,
+                role: roleHex
+            });
+
+            const hasRole = await Role.hasRole(request);
+            console.log(`[ATS] Account ${targetId} ${hasRole ? 'has' : 'does not have'} role ${role}`);
+
+            return { success: true, hasRole };
+        } catch (error: any) {
+            console.error('[ATS] Has role error:', error);
+            return { success: false, error: error.message || 'Failed to check role' };
+        }
+    }
 }
 
 export const ATSService = new ATSServiceClass();
