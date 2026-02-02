@@ -1589,7 +1589,16 @@ class ATSServiceClass {
                 throw new Error(`Unknown role: ${role}`);
             });
 
-            console.log(`[ATS] Applying ${roles.length} roles to ${targetId} on ${securityId}`);
+            console.log(`[ATS] Applying roles:`, {
+                securityId,
+                targetId,
+                roles,
+                roleHexes,
+                actives
+            });
+
+            // Check if target account is associated
+            console.log('[ATS] Checking target account association...');
 
             const request = new ApplyRolesRequest({
                 securityId,
@@ -1603,55 +1612,15 @@ class ATSServiceClass {
 
             return { success: true, transactionId: result.transactionId };
         } catch (error: any) {
-            console.error('[ATS] Apply roles error:', error);
+            console.error('[ATS] Apply roles error:', {
+                message: error.message,
+                status: error.status,
+                transactionId: error.transactionId,
+                fullError: JSON.stringify(error, null, 2)
+            });
             return { success: false, error: error.message || 'Failed to apply roles' };
         }
     }
-
-    /**
-     * Revoke a role from an account on the security token.
-     * @param securityId - The Diamond/Contract Address
-     * @param targetId - The account to revoke the role from
-     * @param role - The role to revoke
-     */
-    async revokeSecurityRole(
-        securityId: string,
-        targetId: string,
-        role: string
-    ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
-        if (!this.isInitialized) await this.init();
-
-        try {
-            const { Role, RoleRequest } = await this.getSDK() as any;
-
-            let roleHex = role;
-            if (!role.startsWith('0x')) {
-                const roleKey = role.toUpperCase().replace(/^_/, '') as SecurityRoleKey;
-                if (SecurityRole[roleKey]) {
-                    roleHex = SecurityRole[roleKey];
-                } else {
-                    throw new Error(`Unknown role: ${role}`);
-                }
-            }
-
-            console.log(`[ATS] Revoking role ${role} from ${targetId} on ${securityId}...`);
-
-            const request = new RoleRequest({
-                securityId,
-                targetId,
-                role: roleHex
-            });
-
-            const result = await Role.revokeRole(request);
-            console.log('[ATS] Revoke role successful:', result);
-
-            return { success: true, transactionId: result.transactionId };
-        } catch (error: any) {
-            console.error('[ATS] Revoke role error:', error);
-            return { success: false, error: error.message || 'Failed to revoke role' };
-        }
-    }
-
     /**
      * Check if an account has a specific role on the security.
      * @param securityId - The Diamond/Contract Address
