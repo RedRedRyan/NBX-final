@@ -1074,6 +1074,22 @@ class ATSServiceClass {
                 throw new Error("Target account ID is required for issuing tokens.");
             }
 
+            // Verify caller has issuer role
+            const roleCheck = await this.verifyAccountHasRole(securityId, 'ISSUER_ROLE');
+            if (!roleCheck.hasRole) {
+                throw new Error(roleCheck.error || 'Connected account lacks ISSUER_ROLE.');
+            }
+
+            // Ensure target account is associated with the underlying HTS token
+            const securityInfo = await this.getSecurityInfo(securityId);
+            if (!securityInfo?.tokenId) {
+                throw new Error('Could not determine underlying token ID for this security.');
+            }
+            const isAssociated = await this.isAccountTokenAssociated(targetId, securityInfo.tokenId);
+            if (!isAssociated) {
+                throw new Error(`Target account ${targetId} must associate with token ${securityInfo.tokenId} first.`);
+            }
+
             console.log(`[ATS] Issuing ${amount} tokens of ${securityId} to ${targetId}...`);
 
             const request = new IssueRequest({
@@ -1087,7 +1103,7 @@ class ATSServiceClass {
             console.log('[ATS] Issue successful:', result);
 
             return {
-                success: true,
+                success: result.payload === true,
                 transactionId: result.transactionId
             };
 
@@ -1112,39 +1128,7 @@ class ATSServiceClass {
         amount: string,
         targetId: string
     ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
-        if (!this.isInitialized) await this.init();
-
-        try {
-            const { Security, MintRequest } = await this.getSDK() as any;
-
-            if (!targetId) {
-                throw new Error("Target account ID is required for minting tokens.");
-            }
-
-            console.log(`[ATS] Minting ${amount} tokens of ${securityId} to ${targetId}...`);
-
-            const request = new MintRequest({
-                securityId: securityId,
-                targetId: targetId,
-                amount: amount,
-            });
-
-            const result = await Security.mint(request);
-
-            console.log('[ATS] Mint successful:', result);
-
-            return {
-                success: true,
-                transactionId: result.transactionId
-            };
-
-        } catch (error: any) {
-            console.error('[ATS] Mint error:', error);
-            return {
-                success: false,
-                error: error.message || 'Failed to mint tokens'
-            };
-        }
+        return this.issueSecurityTokens(securityId, amount, targetId);
     }
 
     /**
@@ -1177,7 +1161,7 @@ class ATSServiceClass {
             console.log('[ATS] Burn successful:', result);
 
             return {
-                success: true,
+                success: result.payload === true,
                 transactionId: result.transactionId
             };
 
@@ -1223,7 +1207,7 @@ class ATSServiceClass {
             console.log('[ATS] Forced transfer successful:', result);
 
             return {
-                success: true,
+                success: result.payload === true,
                 transactionId: result.transactionId
             };
 
@@ -1279,7 +1263,7 @@ class ATSServiceClass {
             console.log('[ATS] Grant role successful:', result);
 
             return {
-                success: true,
+                success: result.payload === true,
                 transactionId: result.transactionId
             };
 
@@ -1581,6 +1565,12 @@ class ATSServiceClass {
         try {
             const { Role, ApplyRolesRequest } = await this.getSDK() as any;
 
+            // Verify caller has admin role
+            const roleCheck = await this.verifyAccountHasRole(securityId, 'DEFAULT_ADMIN_ROLE');
+            if (!roleCheck.hasRole) {
+                throw new Error(roleCheck.error || 'Connected account lacks DEFAULT_ADMIN_ROLE.');
+            }
+
             // Convert role names to hex values
             const roleHexes = roles.map(role => {
                 if (role.startsWith('0x')) return role;
@@ -1597,8 +1587,16 @@ class ATSServiceClass {
                 actives
             });
 
-            // Check if target account is associated
+            // Check if target account is associated with the underlying token
             console.log('[ATS] Checking target account association...');
+            const securityInfo = await this.getSecurityInfo(securityId);
+            if (!securityInfo?.tokenId) {
+                throw new Error('Could not determine underlying token ID for this security.');
+            }
+            const isAssociated = await this.isAccountTokenAssociated(targetId, securityInfo.tokenId);
+            if (!isAssociated) {
+                throw new Error(`Target account ${targetId} must associate with token ${securityInfo.tokenId} first.`);
+            }
 
             const request = new ApplyRolesRequest({
                 securityId,
@@ -1610,7 +1608,7 @@ class ATSServiceClass {
             const result = await Role.applyRoles(request);
             console.log('[ATS] Apply roles successful:', result);
 
-            return { success: true, transactionId: result.transactionId };
+            return { success: result.payload === true, transactionId: result.transactionId };
         } catch (error: any) {
             console.error('[ATS] Apply roles error:', {
                 message: error.message,
@@ -1660,6 +1658,54 @@ class ATSServiceClass {
         } catch (error: any) {
             console.error('[ATS] Has role error:', error);
             return { success: false, error: error.message || 'Failed to check role' };
+        }
+    }
+
+    /**
+     * Verify the connected account has a specific role.
+     */
+    private async verifyAccountHasRole(
+        securityId: string,
+        role: string
+    ): Promise<{ hasRole: boolean; error?: string }> {
+        try {
+            const accountId = this.initData?.account?.id?.value;
+            if (!accountId) {
+                return { hasRole: false, error: 'No account connected' };
+            }
+
+            const check = await this.hasSecurityRole(securityId, accountId, role);
+            if (!check.success) {
+                return { hasRole: false, error: check.error || 'Role check failed' };
+            }
+
+            return { hasRole: !!check.hasRole };
+        } catch (error: any) {
+            return { hasRole: false, error: error.message || 'Role check failed' };
+        }
+    }
+
+    /**
+     * Check if a specific account is associated with a token via Mirror Node.
+     * @param accountId - The Hedera account ID to check.
+     * @param tokenId - The Hedera token ID to check.
+     */
+    private async isAccountTokenAssociated(accountId: string, tokenId: string): Promise<boolean> {
+        try {
+            const mirrorUrl = this.config.mirrorNode.baseUrl;
+            const response = await fetch(
+                `${mirrorUrl}/api/v1/accounts/${accountId}/tokens?token.id=${tokenId}`
+            );
+
+            if (!response.ok) {
+                return false;
+            }
+
+            const data = await response.json();
+            return Array.isArray(data.tokens) && data.tokens.length > 0;
+        } catch (error) {
+            console.error('[ATS] Error checking account token association:', error);
+            return false;
         }
     }
 }
