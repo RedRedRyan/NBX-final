@@ -139,7 +139,7 @@ const InvestorDashboard = () => {
                         <h1 className="text-3xl font-bold">Dashboard</h1>
                         <p className="text-gray-400">Welcome back, Investor</p>
                     </div>
-                    <Link href="/markets" className="text-sm border bg-orange rounded px-4 py-2 hover:bg-gray-800 transition-colors">
+                    <Link href="/markets" id="badge">
                         Explore Markets
                     </Link>
                 </div>

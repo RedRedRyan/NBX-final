@@ -65,8 +65,13 @@ const Sidebar = () => {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen bg-gray-900 text-white transition-all duration-300 z-50 ${isExpanded ? "w-64" : "w-20"
+      className={`fixed left-0 top-0 h-screen transition-all duration-300 z-50 ${isExpanded ? "w-64" : "w-20"
         }`}
+      style={{
+        backgroundColor: 'var(--sidebar)',
+        color: 'var(--sidebar-foreground)',
+        borderRight: '1px solid var(--sidebar-border)'
+      }}
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
       onFocusCapture={() => setIsExpanded(true)}
@@ -77,7 +82,7 @@ const Sidebar = () => {
       }}
     >
       {/* Logo */}
-      <div className="flex items-center justify-center h-20 border-b border-gray-800">
+      <div className="flex items-center justify-center h-20" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
         {isExpanded ? (
           <Link href="/" className="flex items-center space-x-2">
             <Image
@@ -110,10 +115,25 @@ const Sidebar = () => {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? "bg-blue-600 text-white"
-                : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                }`}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors`}
+              style={isActive ? {
+                backgroundColor: 'var(--sidebar-accent)',
+                color: 'var(--sidebar-accent-foreground)'
+              } : {
+                color: 'var(--sidebar-foreground)',
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = 'var(--sidebar-accent)'
+                  e.currentTarget.style.opacity = '0.8'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.opacity = '1'
+                }
+              }}
             >
               <Image
                 src={item.icon}
@@ -133,19 +153,19 @@ const Sidebar = () => {
       </nav>
 
       {/* Wallet Connection Status */}
-      <div className="border-t border-gray-800 p-4">
+      <div className="p-4" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
         <div className="flex items-center space-x-3 mb-2">
-          <div className={`flex-shrink-0 w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div className="flex-shrink-0 w-3 h-3 rounded-full" style={{ backgroundColor: isConnected ? '#4ade80' : 'var(--destructive)' }} />
           {isExpanded && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-400">Wallet Status</p>
+              <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Wallet Status</p>
               <p className="text-sm font-medium truncate">
                 {isConnected ? (
-                  <span className="text-green-400">
+                  <span style={{ color: '#4ade80' }}>
                     {account?.accountId ? `${account.accountId.slice(0, 8)}...` : 'Connected'}
                   </span>
                 ) : (
-                  <span className="text-red-400">Not Connected</span>
+                  <span style={{ color: 'var(--destructive)' }}>Not Connected</span>
                 )}
               </p>
             </div>
@@ -155,10 +175,21 @@ const Sidebar = () => {
           <button
             onClick={isConnected ? disconnect : connect}
             disabled={walletLoading}
-            className={`w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${isConnected
-              ? 'bg-orange-600 hover:bg-orange-700'
-              : 'bg-primary hover:bg-primary/90'
-              } ${walletLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${walletLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={{
+              backgroundColor: isConnected ? 'var(--sidebar-ring)' : 'var(--primary)',
+              color: 'var(--primary-foreground)'
+            }}
+            onMouseEnter={(e) => {
+              if (!walletLoading) {
+                e.currentTarget.style.opacity = '0.9'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!walletLoading) {
+                e.currentTarget.style.opacity = '1'
+              }
+            }}
           >
             {walletLoading ? (
               <span>Connecting...</span>
@@ -181,29 +212,39 @@ const Sidebar = () => {
           </button>
         )}
         {isExpanded && walletError && (
-          <p className="text-xs text-red-400 mt-1 truncate">{walletError}</p>
+          <p className="text-xs mt-1 truncate" style={{ color: 'var(--destructive)' }}>{walletError}</p>
         )}
       </div>
 
       {/* User info and logout if logged in */}
       {user && (
-        <div className="border-t border-gray-800">
+        <div style={{ borderTop: '1px solid var(--sidebar-border)' }}>
           <div className="p-4">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-semibold">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold" style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}>
                 {emailInitial}
               </div>
               {isExpanded && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{email}</p>
-                  <p className="text-xs text-gray-400 truncate">{roleLabel}</p>
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--sidebar-foreground)' }}>{email}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{roleLabel}</p>
                 </div>
               )}
             </div>
             {isExpanded && (
               <button
                 onClick={handleLogout}
-                className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 transition-colors text-sm font-medium"
+                className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                style={{
+                  backgroundColor: 'var(--destructive)',
+                  color: 'var(--color-light-gray)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.9'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1'
+                }}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

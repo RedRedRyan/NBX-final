@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { companies, partners, features } from "@/lib/constants";
+import { companies, features } from "@/lib/constants";
 import { useAuth } from "@/lib/context/AuthContext";
 import { ApiClient } from "@/lib/api/client";
 import ParticlesBackground from "@/components/ParticlesBackground";
@@ -42,7 +42,7 @@ const HomePage = () => {
     <section id="hero" className="relative overflow-hidden">
       <ParticlesBackground />
 
-      {/* Ticker Bar */}
+     
 
 
       {/* Hero Section */}
@@ -79,10 +79,10 @@ const HomePage = () => {
           <div className="flex justify-center gap-4 lg:mt-8 md:mt-4">
             {!isAuthenticated ? (
               <>
-                <a href="/auth/signup" className="bg-accent-foreground badge">
+                <a href="/auth/signup" className="badge">
                   Sign Up
                 </a>
-                <a href="/auth/login" className="badge">
+                <a href="/auth/login" className="black-badge">
                   Log In
                 </a>
               </>
@@ -92,13 +92,13 @@ const HomePage = () => {
                   <>
                     <a
                       href={`/company/dashboard/${companyId}`}
-                      className="bg-accent-foreground badge"
+                      className="badge"
                     >
                       Dashboard
                     </a>
                     <a
                       href={`/company/dashboard/${companyId}/equity/new`}
-                      className="badge"
+                      className="black-badge"
                     >
                       Issue Securities
                     </a>
@@ -111,10 +111,10 @@ const HomePage = () => {
               </>
             ) : (
               <>
-                <a href="/markets" className="bg-accent-foreground badge">
+                <a href="/markets" className="badge">
                   Explore Markets
                 </a>
-                <a href="/wallet" className="badge">
+                <a href="/wallet" className="black-badge">
                   Portfolio
                 </a>
               </>
