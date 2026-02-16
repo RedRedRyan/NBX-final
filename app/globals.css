@@ -179,6 +179,9 @@
     .badge {
       @apply inline-block rounded-full bg-primary text-black px-4 py-2 text-sm font-medium mb-8;
   }
+    .black-badge {
+      @apply inline-block rounded-full bg-black text-primary px-4 py-2 text-sm font-medium mb-8;
+    }
 
     .top-grid {
         @apply grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5 md:px-0 px-5;
@@ -372,6 +375,10 @@
         @apply flex flex-row gap-2;
       }
     }
+  }
+  #dashboard {
+    @apply min-h-screen pb-28 2xl:px-0 px-5 container mx-auto;
+    padding-top: 0;
   }
 
   #event {
