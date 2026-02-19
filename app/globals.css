@@ -173,9 +173,9 @@
     @apply min-h-screen pb-28 2xl:px-0 px-5 container mx-auto;
     padding-top: 0;
 
-    .badge {
-      @apply inline-block rounded-full bg-primary text-black px-4 py-2 text-sm font-medium mb-8;
-  }
+    
+  .btn{
+    @apply bg-white rounded-full text-2xl font-bold }
     .black-badge {
       @apply inline-block rounded-full bg-black text-primary px-4 py-2 text-sm font-medium mb-8;
     }
@@ -247,6 +247,9 @@
       }
   }
 
+}
+#badge {
+  @apply inline-block rounded-full bg-primary text-black px-4 py-2 text-sm font-medium mb-8;
 }
 
   #hero .ticker {
