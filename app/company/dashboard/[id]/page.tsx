@@ -32,6 +32,15 @@ const CompanyDashboardPage = () => {
   const [securities, setSecurities] = useState<Security[]>([]);
   const [securitiesLoading, setSecuritiesLoading] = useState(false);
 
+  // Callback to refresh data upon successful operations
+  const handleSecurityRefresh = () => {
+    // Refresh company data and securities list
+    if (companyId) {
+      fetchCompanyById(companyId);
+      window.location.reload();
+    }
+  };
+
   // Fetch company data on mount
   useEffect(() => {
     if (user && user.role !== 'company') {
@@ -345,6 +354,7 @@ const CompanyDashboardPage = () => {
                           </svg>
                         </div>
                       </div>
+
                     </Link>
                   ))}
                 </div>
@@ -421,7 +431,7 @@ const CompanyDashboardPage = () => {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };
 

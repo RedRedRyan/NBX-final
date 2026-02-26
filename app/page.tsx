@@ -17,7 +17,7 @@ const HomePage = () => {
       try {
         if (user?.role === "company" && user?.email && token) {
           const response = await ApiClient.getUserCompanies(user.email, token) as { data?: any[] };
-          const company = response?.data?.[0]; // Assuming API returns an array
+          const company = response?.data?.[0]; // API returns an array
           if (company?._id) {
             setCompanyId(company._id);
           }

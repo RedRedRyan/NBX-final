@@ -5,6 +5,11 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { ApiClient } from '@/lib/api/client';
 import Link from 'next/link';
+import EnableTradingButton from '@/components/EnableTradingButton';
+import MintButton from '@/components/MintButton';
+import GrantRoleButton from '@/components/GrantRoleButton';
+import RoleManagementSection from '@/components/RoleManagementSection';
+import ATSService from '@/lib/hedera/ATSService';
 
 interface SecurityDetails {
     _id: string;
@@ -56,6 +61,10 @@ const SecurityDetailPage = () => {
     const [security, setSecurity] = useState<SecurityDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [htsTokenId, setHtsTokenId] = useState<string | null>(null);
+    const [mintedAmount, setMintedAmount] = useState<number>(0);
+    const [mintedPercentage, setMintedPercentage] = useState<number>(0);
+    const [activeTab, setActiveTab] = useState<'overview' | 'roles'>('overview');
 
     // Mock shareholders data
     const [shareholders] = useState<Shareholder[]>([
@@ -86,6 +95,39 @@ const SecurityDetailPage = () => {
 
         fetchSecurity();
     }, [companyId, securityId, securityType, token]);
+
+    // Fetch additional security info (Token ID, minted percentage)
+    useEffect(() => {
+        const fetchSecurityInfo = async () => {
+            if (!security?.assetAddress) return;
+
+            try {
+                // Try to get security info from the SDK
+                const info = await ATSService.getSecurityInfo(security.assetAddress);
+                if (info.tokenId) {
+                    setHtsTokenId(info.tokenId);
+                }
+
+                // Calculate minted percentage by summing all holder balances
+                // Using the shareholding data (in production, this would come from Mirror Node)
+                const totalMinted = shareholders.reduce(
+                    (sum, holder) => sum + Number(holder.balance),
+                    0
+                );
+                const totalSupply = Number(security.totalSupply);
+
+                if (totalSupply > 0) {
+                    setMintedAmount(totalMinted);
+                    setMintedPercentage((totalMinted / totalSupply) * 100);
+                }
+            } catch (err) {
+                console.error('Failed to fetch security info:', err);
+            }
+        };
+
+        fetchSecurityInfo();
+    }, [security?.assetAddress, security?.totalSupply, shareholders]);
+
 
     if (isLoading) {
         return (
@@ -170,7 +212,22 @@ const SecurityDetailPage = () => {
                                 <p className="text-light-100 mt-1">{security.symbol} • {security.assetAddress}</p>
                             </div>
                         </div>
-                        <div className="mt-4 md:mt-0">
+                        <div className="mt-4 md:mt-0 flex items-center gap-3 flex-wrap">
+                            <GrantRoleButton
+                                securityAddress={security.assetAddress}
+                                onSuccess={() => window.location.reload()}
+                            />
+                            <MintButton
+                                securityAddress={security.assetAddress}
+                                amountToMint={100}
+                                onSuccess={() => window.location.reload()}
+                            />
+                            {isEquity && (
+                                <EnableTradingButton
+                                    tokenId={security.assetAddress}
+                                    totalSupply={security.totalSupply}
+                                />
+                            )}
                             <span className={`px-4 py-2 rounded-full text-sm ${security.status === 'active'
                                 ? 'bg-green-500/10 text-green-500'
                                 : 'bg-yellow-500/10 text-yellow-500'
@@ -181,185 +238,265 @@ const SecurityDetailPage = () => {
                     </div>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-                    <div className="bg-dark-200 border border-border rounded-lg p-6">
-                        <p className="text-sm text-light-100 mb-2">Total Supply</p>
-                        <p className="text-2xl font-bold text-white font-mono">
-                            {Number(security.totalSupply).toLocaleString()}
-                        </p>
-                    </div>
-
-                    <div className="bg-dark-200 border border-border rounded-lg p-6">
-                        <p className="text-sm text-light-100 mb-2">Currency</p>
-                        <p className="text-2xl font-bold text-white">
-                            {security.currency || 'USD'}
-                        </p>
-                    </div>
-
-                    <div className="bg-dark-200 border border-border rounded-lg p-6">
-                        <p className="text-sm text-light-100 mb-2">Nominal Value</p>
-                        <p className="text-2xl font-bold text-white">
-                            {security.nominalValue || 'N/A'}
-                        </p>
-                    </div>
-
-                    <div className="bg-dark-200 border border-border rounded-lg p-6">
-                        <p className="text-sm text-light-100 mb-2">Network</p>
-                        <p className="text-2xl font-bold text-white capitalize">
-                            {security.network}
-                        </p>
-                    </div>
+                {/* Tab Navigation */}
+                <div className="mb-6 border-b border-border">
+                    <nav className="flex gap-4">
+                        <button
+                            onClick={() => setActiveTab('overview')}
+                            className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 ${activeTab === 'overview'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-light-200 hover:text-white'
+                                }`}
+                        >
+                            Overview
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('roles')}
+                            className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 ${activeTab === 'roles'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-light-200 hover:text-white'
+                                }`}
+                        >
+                            Role Management
+                        </button>
+                    </nav>
                 </div>
 
-                {/* Shareholding Section */}
-                <div className="bg-dark-200 border border-border rounded-lg p-6 mb-8">
-                    <h3 className="text-xl font-semibold text-white mb-4">Current Shareholding</h3>
-                    <p className="text-light-100 mb-6">
-                        View the distribution of token holders
-                    </p>
+                {/* Tab Content */}
+                {activeTab === 'overview' && (
+                    <>
+                        {/* Stats Grid */}
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <p className="text-sm text-light-100 mb-2">Total Supply</p>
+                                <p className="text-2xl font-bold text-white font-mono">
+                                    {Number(security.totalSupply).toLocaleString()}
+                                </p>
+                            </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-border">
-                                    <th className="text-left py-3 px-4 text-light-100 font-medium">Holder Address</th>
-                                    <th className="text-right py-3 px-4 text-light-100 font-medium">Balance</th>
-                                    <th className="text-right py-3 px-4 text-light-100 font-medium">Percentage</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {shareholders.map((holder, index) => (
-                                    <tr key={index} className="border-b border-border/50 hover:bg-dark-100 transition-colors">
-                                        <td className="py-4 px-4">
-                                            <span className="font-mono text-white">{holder.address}</span>
-                                        </td>
-                                        <td className="py-4 px-4 text-right">
-                                            <span className="font-mono text-white">
-                                                {Number(holder.balance).toLocaleString()}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <div className="w-24 bg-dark-100 rounded-full h-2">
-                                                    <div
-                                                        className={`h-2 rounded-full bg-${accentColor}`}
-                                                        style={{ width: `${holder.percentage}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-light-100 text-sm w-12 text-right">
-                                                    {holder.percentage}%
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <p className="text-sm text-light-100 mb-2">Minted %</p>
+                                <div className="flex items-end gap-2">
+                                    <p className="text-2xl font-bold text-white font-mono">
+                                        {mintedPercentage.toFixed(1)}%
+                                    </p>
+                                </div>
+                                <div className="mt-2 w-full bg-dark-100 rounded-full h-2">
+                                    <div
+                                        className="h-2 rounded-full bg-green-500 transition-all duration-500"
+                                        style={{ width: `${Math.min(mintedPercentage, 100)}%` }}
+                                    ></div>
+                                </div>
+                                <p className="text-xs text-light-200 mt-1">
+                                    {mintedAmount.toLocaleString()} minted
+                                </p>
+                            </div>
+
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <p className="text-sm text-light-100 mb-2">Token ID</p>
+                                <p className="text-lg font-bold text-white font-mono truncate" title={htsTokenId || security.assetAddress}>
+                                    {htsTokenId || security.assetAddress}
+                                </p>
+                                <a
+                                    href={`https://hashscan.io/testnet/token/${htsTokenId || security.assetAddress}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline mt-1 inline-block"
+                                >
+                                    View on HashScan →
+                                </a>
+                            </div>
+
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <p className="text-sm text-light-100 mb-2">Currency</p>
+                                <p className="text-2xl font-bold text-white">
+                                    {security.currency || 'USD'}
+                                </p>
+                            </div>
+
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <p className="text-sm text-light-100 mb-2">Nominal Value</p>
+                                <p className="text-2xl font-bold text-white">
+                                    {security.nominalValue || 'N/A'}
+                                </p>
+                            </div>
+
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <p className="text-sm text-light-100 mb-2">Network</p>
+                                <p className="text-2xl font-bold text-white capitalize">
+                                    {security.network}
+                                </p>
+                            </div>
+                        </div>
+
+
+                        {/* Shareholding Section */}
+                        <div className="bg-dark-200 border border-border rounded-lg p-6 mb-8">
+                            <h3 className="text-xl font-semibold text-white mb-4">Current Shareholding</h3>
+                            <p className="text-light-100 mb-6">
+                                View the distribution of token holders
+                            </p>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-border">
+                                            <th className="text-left py-3 px-4 text-light-100 font-medium">Holder Address</th>
+                                            <th className="text-right py-3 px-4 text-light-100 font-medium">Balance</th>
+                                            <th className="text-right py-3 px-4 text-light-100 font-medium">Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {shareholders.map((holder, index) => (
+                                            <tr key={index} className="border-b border-border/50 hover:bg-dark-100 transition-colors">
+                                                <td className="py-4 px-4">
+                                                    <span className="font-mono text-white">{holder.address}</span>
+                                                </td>
+                                                <td className="py-4 px-4 text-right">
+                                                    <span className="font-mono text-white">
+                                                        {Number(holder.balance).toLocaleString()}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <div className="w-24 bg-dark-100 rounded-full h-2">
+                                                            <div
+                                                                className={`h-2 rounded-full bg-${accentColor}`}
+                                                                style={{ width: `${holder.percentage}%` }}
+                                                            ></div>
+                                                        </div>
+                                                        <span className="text-light-100 text-sm w-12 text-right">
+                                                            {holder.percentage}%
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="mt-4 text-sm text-light-200">
+                                * Shareholding data will be fetched from the Hedera network in future updates
+                            </div>
+                        </div>
+
+                        {/* Security Details */}
+                        <div className="grid gap-6 md:grid-cols-2 mb-8">
+                            {/* General Info */}
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <h3 className="text-lg font-semibold text-white mb-4">General Information</h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">ISIN</span>
+                                        <span className="text-white font-mono">{security.isin || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Decimals</span>
+                                        <span className="text-white">{security.decimals}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Asset Address</span>
+                                        <span className="text-white font-mono text-sm">{security.assetAddress}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Treasury Account</span>
+                                        <span className="text-white font-mono">{security.treasuryAccountId || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Tokenized At</span>
+                                        <span className="text-white">
+                                            {security.tokenizedAt ? new Date(security.tokenizedAt).toLocaleDateString() : 'N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Configuration */}
+                            <div className="bg-dark-200 border border-border rounded-lg p-6">
+                                <h3 className="text-lg font-semibold text-white mb-4">Configuration</h3>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Controllable</span>
+                                        <span className={security.isControllable ? 'text-green-500' : 'text-red-500'}>
+                                            {security.isControllable ? 'Yes' : 'No'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Blocklist Enabled</span>
+                                        <span className={security.isBlocklist ? 'text-green-500' : 'text-red-500'}>
+                                            {security.isBlocklist ? 'Yes' : 'No'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Regulation Type</span>
+                                        <span className="text-white">{security.regulationType || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-light-100">Regulation SubType</span>
+                                        <span className="text-white">{security.regulationSubType || 'N/A'}</span>
+                                    </div>
+                                    {isEquity && (
+                                        <>
+                                            <div className="flex justify-between">
+                                                <span className="text-light-100">Voting Rights</span>
+                                                <span className={security.votingRights ? 'text-green-500' : 'text-red-500'}>
+                                                    {security.votingRights ? 'Yes' : 'No'}
                                                 </span>
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="mt-4 text-sm text-light-200">
-                        * Shareholding data will be fetched from the Hedera network in future updates
-                    </div>
-                </div>
-
-                {/* Security Details */}
-                <div className="grid gap-6 md:grid-cols-2 mb-8">
-                    {/* General Info */}
-                    <div className="bg-dark-200 border border-border rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-white mb-4">General Information</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-light-100">ISIN</span>
-                                <span className="text-white font-mono">{security.isin || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Decimals</span>
-                                <span className="text-white">{security.decimals}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Asset Address</span>
-                                <span className="text-white font-mono text-sm">{security.assetAddress}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Treasury Account</span>
-                                <span className="text-white font-mono">{security.treasuryAccountId || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Tokenized At</span>
-                                <span className="text-white">
-                                    {security.tokenizedAt ? new Date(security.tokenizedAt).toLocaleDateString() : 'N/A'}
-                                </span>
+                                        </>
+                                    )}
+                                    {!isEquity && security.couponRate !== undefined && (
+                                        <>
+                                            <div className="flex justify-between">
+                                                <span className="text-light-100">Coupon Rate</span>
+                                                <span className="text-white">{security.couponRate}%</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-light-100">Maturity Date</span>
+                                                <span className="text-white">
+                                                    {security.maturityDate
+                                                        ? new Date(security.maturityDate * 1000).toLocaleDateString()
+                                                        : 'N/A'}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Configuration */}
-                    <div className="bg-dark-200 border border-border rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-white mb-4">Configuration</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Controllable</span>
-                                <span className={security.isControllable ? 'text-green-500' : 'text-red-500'}>
-                                    {security.isControllable ? 'Yes' : 'No'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Blocklist Enabled</span>
-                                <span className={security.isBlocklist ? 'text-green-500' : 'text-red-500'}>
-                                    {security.isBlocklist ? 'Yes' : 'No'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Regulation Type</span>
-                                <span className="text-white">{security.regulationType || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-light-100">Regulation SubType</span>
-                                <span className="text-white">{security.regulationSubType || 'N/A'}</span>
-                            </div>
-                            {isEquity && (
-                                <>
-                                    <div className="flex justify-between">
-                                        <span className="text-light-100">Voting Rights</span>
-                                        <span className={security.votingRights ? 'text-green-500' : 'text-red-500'}>
-                                            {security.votingRights ? 'Yes' : 'No'}
-                                        </span>
-                                    </div>
-                                </>
-                            )}
-                            {!isEquity && security.couponRate !== undefined && (
-                                <>
-                                    <div className="flex justify-between">
-                                        <span className="text-light-100">Coupon Rate</span>
-                                        <span className="text-white">{security.couponRate}%</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-light-100">Maturity Date</span>
-                                        <span className="text-white">
-                                            {security.maturityDate
-                                                ? new Date(security.maturityDate * 1000).toLocaleDateString()
-                                                : 'N/A'}
-                                        </span>
-                                    </div>
-                                </>
-                            )}
+                        {/* Back Button */}
+                        <div className="mt-8">
+                            <Link
+                                href={`/company/dashboard/${companyId}`}
+                                className="inline-flex items-center px-4 py-2 bg-dark-200 border border-border rounded-lg text-white hover:border-primary transition-colors"
+                            >
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                                Back to Dashboard
+                            </Link>
                         </div>
-                    </div>
-                </div>
+                    </>
+                )}
 
-                {/* Back Button */}
-                <div className="mt-8">
-                    <Link
-                        href={`/company/dashboard/${companyId}`}
-                        className="inline-flex items-center px-4 py-2 bg-dark-200 border border-border rounded-lg text-white hover:border-primary transition-colors"
-                    >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Back to Dashboard
-                    </Link>
-                </div>
+                {/* Role Management Tab */}
+                {activeTab === 'roles' && (
+                    <div className="bg-dark-200 border border-border rounded-lg p-6">
+                        <h2 className="text-xl font-semibold text-white mb-2">Role Management</h2>
+                        <p className="text-light-100 mb-6">
+                            Manage security token roles and permissions. The Admin role holder has full control over this security.
+                        </p>
+                        <RoleManagementSection
+                            securityAddress={security.assetAddress}
+                            onRoleChange={() => {
+                                // Refresh page 
+                                router.refresh();
+                            }}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

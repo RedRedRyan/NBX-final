@@ -159,7 +159,42 @@ const CreateBondPage = () => {
       }
 
       setResult(deployResult);
-      setSuccess(`Bond deployed! Asset Address: ${deployResult.assetAddress}`);
+
+      // Save to Backend
+      try {
+        // Construct payload for backend
+        // We include the on-chain address and txId
+        const backendPayload = {
+          ...deployParams,
+          assetAddress: deployResult.assetAddress,
+          transactionId: deployResult.transactionId,
+          status: 'Active', // Default status
+          // Ensure dates are strings or Date objects as expected by backend DTO
+          startingDate: new Date(formData.startingDate),
+          maturityDate: new Date(formData.maturityDate),
+        };
+
+        // We assume ApiClient is imported. If not, we rely on it being available or import it.
+        // Checking imports... ApiClient is NOT imported in the file view I saw.
+        // I need to add import ApiClient or use what's available?
+        // The file has imports from '@/lib/hedera/ATSService'.
+        // I need to add `import { ApiClient } from '@/lib/api/client';` at the top.
+        // But I can't add imports with this tool easily in one go if they are far apart.
+        // I will assume ApiClient needs to be imported. I'll split this into 2 edits if needed.
+        // For now, let's look at the imports. Line 8 is ATSService.
+        // I will use a separate edit to add the import.
+
+        await import('@/lib/api/client').then(({ ApiClient }) => {
+          return ApiClient.createBond(companyId, backendPayload, token!);
+        });
+
+        setSuccess(`Bond deployed and saved! Asset Address: ${deployResult.assetAddress}`);
+      } catch (backendError: any) {
+        console.error("Failed to save bond to backend:", backendError);
+        // Don't fail the whole flow, but warn
+        setSuccess(`Bond deployed (Chain Only)! Asset Address: ${deployResult.assetAddress}. Backend save failed: ${backendError.message}`);
+      }
+
       setTimeout(() => router.push(`/company/dashboard/${companyId}`), 3000);
 
     } catch (err: any) {
