@@ -95,7 +95,7 @@ const LineChart = () => {
                 <path
                     d="M0,80 C50,80 50,40 100,50 C150,60 150,20 200,30 C250,40 250,10 300,20"
                     fill="none"
-                    stroke="#3b82f6"
+                    stroke="#fb4f1f"
                     strokeWidth="3"
                 />
                 <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -130,7 +130,7 @@ const InvestorDashboard = () => {
     const activeProposalsCount = proposals.filter(p => p.status === 'Active' && !p.myVote).length;
 
     return (
-        <div className="min-h-screen bg-black/95 text-white p-4 md:p-8">
+        <div id="dashboard">
             <div className="max-w-7xl mx-auto space-y-8">
 
                 {/* Header */}
@@ -139,7 +139,7 @@ const InvestorDashboard = () => {
                         <h1 className="text-3xl font-bold">Dashboard</h1>
                         <p className="text-gray-400">Welcome back, Investor</p>
                     </div>
-                    <Link href="/markets" className="text-sm border border-gray-600 rounded px-4 py-2 hover:bg-gray-800 transition-colors">
+                    <Link href="/markets" id="badge">
                         Explore Markets
                     </Link>
                 </div>
@@ -215,7 +215,7 @@ const InvestorDashboard = () => {
                         </div>
                         <button
                             onClick={() => setActiveTab('governance')}
-                            className="bg-white text-black px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors whitespace-nowrap"
+                            id="badge"
                         >
                             View Voting Sessions
                         </button>

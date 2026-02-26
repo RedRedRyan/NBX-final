@@ -44,17 +44,14 @@
   --chart-4: #ffcc00;
   --chart-5: #9966ff;
 
-  /* Sidebar Colors */
-  /*background*/
+  /* Sidebar Colors - Using defined color variables */
   --sidebar: var(--color-dark-200);
-
-
   --sidebar-foreground: var(--color-light-gray);
   --sidebar-primary: var(--color-black);
   --sidebar-primary-foreground: var(--color-light-gray);
-  --sidebar-accent: #2a2a2a;
+  --sidebar-accent: var(--muted);
   --sidebar-accent-foreground: var(--color-light-gray);
-  --sidebar-border: #333333;
+  --sidebar-border: var(--border);
   --sidebar-ring: var(--color-orange);
 }
 
@@ -119,7 +116,7 @@
 }
 
 @utility text-gradient {
-  @apply to-blue bg-gradient-to-b from-[gold] via-white bg-clip-text font-semibold text-transparent;
+  @apply bg-gradient-to-b from-[var(--color-orange)] via-[var(--color-light-gray)] to-[var(--color-orange)] bg-clip-text font-semibold text-transparent;
 }
 
 @utility glass {
@@ -176,9 +173,12 @@
     @apply min-h-screen pb-28 2xl:px-0 px-5 container mx-auto;
     padding-top: 0;
 
-    .badge {
-      @apply inline-block rounded-full bg-primary text-black px-4 py-2 text-sm font-medium mb-8;
-  }
+    
+  .btn{
+    @apply bg-white rounded-full text-2xl font-bold }
+    .black-badge {
+      @apply inline-block rounded-full bg-black text-primary px-4 py-2 text-sm font-medium mb-8;
+    }
 
     .top-grid {
         @apply grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5 md:px-0 px-5;
@@ -194,7 +194,7 @@
             @apply object-cover w-full h-full;
         }
         .temp{
-            @apply bg-orange-300;
+            background-color: var(--primary);
             img{
                 @apply right-0;
             }
@@ -211,7 +211,7 @@
             @apply object-right w-full h-full;
         }
         .temp{
-            @apply bg-orange-300;
+            background-color: var(--primary);
             img{
                 @apply right-0;
             }
@@ -248,9 +248,14 @@
   }
 
 }
+#badge {
+  @apply inline-block rounded-full bg-primary text-black px-4 py-2 text-sm font-medium mb-8;
+}
 
   #hero .ticker {
-    @apply relative overflow-hidden border-y border-white/10;
+    @apply relative overflow-hidden;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     background: linear-gradient(90deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.65));
     backdrop-filter: blur(12px);
   }
@@ -372,6 +377,10 @@
         @apply flex flex-row gap-2;
       }
     }
+  }
+  #dashboard {
+    @apply min-h-screen pb-28 2xl:px-0 px-5 container mx-auto;
+    padding-top: 0;
   }
 
   #event {

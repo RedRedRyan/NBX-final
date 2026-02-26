@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { companies, partners, features } from "@/lib/constants";
+import { companies, features } from "@/lib/constants";
 import { useAuth } from "@/lib/context/AuthContext";
 import { ApiClient } from "@/lib/api/client";
 import ParticlesBackground from "@/components/ParticlesBackground";
@@ -42,7 +42,7 @@ const HomePage = () => {
     <section id="hero" className="relative overflow-hidden">
       <ParticlesBackground />
 
-      {/* Ticker Bar */}
+     
 
 
       {/* Hero Section */}
@@ -79,10 +79,10 @@ const HomePage = () => {
           <div className="flex justify-center gap-4 lg:mt-8 md:mt-4">
             {!isAuthenticated ? (
               <>
-                <a href="/auth/signup" className="bg-accent-foreground badge">
+                <a href="/auth/signup" className="badge">
                   Sign Up
                 </a>
-                <a href="/auth/login" className="badge">
+                <a href="/auth/login" className="black-badge">
                   Log In
                 </a>
               </>
@@ -92,13 +92,13 @@ const HomePage = () => {
                   <>
                     <a
                       href={`/company/dashboard/${companyId}`}
-                      className="bg-accent-foreground badge"
+                      className="badge"
                     >
                       Dashboard
                     </a>
                     <a
                       href={`/company/dashboard/${companyId}/equity/new`}
-                      className="badge"
+                      className="black-badge"
                     >
                       Issue Securities
                     </a>
@@ -111,10 +111,10 @@ const HomePage = () => {
               </>
             ) : (
               <>
-                <a href="/markets" className="bg-accent-foreground badge">
+                <a href="/markets" className="badge">
                   Explore Markets
                 </a>
-                <a href="/wallet" className="badge">
+                <a href="/wallet" className="black-badge">
                   Portfolio
                 </a>
               </>
@@ -135,33 +135,34 @@ const HomePage = () => {
         </div>
 
         {/* Map and Info Row */}
-        <div className="col-span-12 md:col-span-9 bg-transparent relative min-h-[300px]">
+
+        <div className="col-span-12 md:col-span-9 bg-transparent relative min-h-[300px] ">
           <div className="noisy " />
           <img src="/icons/mapbase.svg" alt="grid-img-5" className="w-full h-full object-cover opacity-80" />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
             <h2 id="AnyText" className="text-3xl md:text-4xl">Anywhere Anytime</h2>
-            <p className="max-w-lg text-white">
+            <p className="max-w-lg text-white font-schibsted-grotesk">
               NBX democratizes investing by turning company shares into security tokens
             </p>
           </div>
         </div>
 
         {/* Key Features */}
-        <div className="col-span-12 md:col-span-3 hover:bg-primary hover:text-black transition-all duration-300 ease-in-out rounded-lg p-6 border border-gray-800">
-          <div className="lg:mt-14 lg:text-2xl md:text-2xl text-xl text-center">
-            <ul className="space-y-4">
-              <li>Fractional ownerships</li>
-              <li>Instant Settlements</li>
-              <li>Borderless investment</li>
-            </ul>
-          </div>
-        </div>
+        {/*<div className="col-span-12 md:col-span-3 hover:bg-primary hover:text-black transition-all duration-300 ease-in-out rounded-lg p-6 border border-gray-800">*/}
+        {/*  <div className="lg:mt-14 lg:text-2xl md:text-2xl text-xl text-center">*/}
+        {/*    <ul className="space-y-4">*/}
+        {/*      <li>Fractional ownerships</li>*/}
+        {/*      <li>Instant Settlements</li>*/}
+        {/*      <li>Borderless investment</li>*/}
+        {/*    </ul>*/}
+        {/*  </div>*/}
+        {/*</div>*/}
       </div>
 
       {/* Features Grid */}
-      <div className="middle-grid mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="middle-grid">
         {features.map((feature, index) => (
-          <div key={index} className="col-span-1">
+          <div key={index} className="col-span-3">
             <div className="feature-card p-6 backdrop-brightness-50 rounded-lg border border-primary h-full">
               <div className="feature-icon">
                 <img
@@ -180,7 +181,7 @@ const HomePage = () => {
       </div>
 
       {/* SMEs Big Six Section */}
-      <div className="bigsix-grid mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      <div className="bigsix-grid mt-16 ">
         <div className="col-span-1 md:col-span-2 lg:col-span-6 text-center mb-8">
           <h2 className="text-4xl md:text-6xl font-bold mt-12">SMEs Big Six</h2>
           <p className="mt-4">An index of the 6 most promising companies</p>
@@ -216,7 +217,7 @@ const HomePage = () => {
               href={company.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="badge ml-auto"
+              className="black-badge ml-auto"
             >
               See
             </a>
@@ -224,30 +225,6 @@ const HomePage = () => {
         ))}
       </div>
 
-      {/* Partners Section */}
-      <div className="bottom-grid">
-        <div className="md:col-span-12 flex flex-col items-center justify-center text-center">
-          <h2 id="AnyText">Together let's take SMEs to</h2>
-          <br />
-          <h1 className="text-center">The Next Step</h1>
-        </div>
-      </div>
-
-      <div className="flex flex-col items-center">
-        <div className="w-full max-w-5xl mb-16">
-          <h2 className="text-2xl font-bold mb-6 text-center">Our Partners</h2>
-          <div className="flex flex-wrap justify-center gap-8">
-            {partners.map((partner) => (
-              <div key={partner.name} className="text-center">
-                <div className="w-24 h-24 bg-dark-200 rounded-lg flex items-center justify-center mb-2 mx-auto">
-                  <img alt={partner.name} src={partner.logo} />
-                </div>
-                <p className="text-sm text-light-100">{partner.name}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </section>
   );
 };
