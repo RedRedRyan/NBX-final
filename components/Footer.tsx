@@ -12,7 +12,7 @@ const Footer = () => {
         <div className="md:text-right">
           <p className="text-xs uppercase tracking-[0.2em] text-light-200">Questionnaire</p>
           <Link
-            href="/company/sme-voice"
+            href="https://forms.gle/aHsL3MHpL31zL1gd9"
             className="mt-3 inline-flex items-center rounded-full border border-primary/60 bg-primary/10 px-5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
           >
             Open NBX Company Survey
