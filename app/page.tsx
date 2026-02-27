@@ -79,10 +79,10 @@ const HomePage = () => {
           <div className="flex justify-center gap-4 lg:mt-8 md:mt-4">
             {!isAuthenticated ? (
               <>
-                <a href="/auth/signup" className="badge">
+                <a href="/auth/signup" className="bg-primary text-black font-semibold px-5 py-2 rounded-full transition-colors hover:bg-primary/80">
                   Sign Up
                 </a>
-                <a href="/auth/login" className="black-badge">
+                <a href="/auth/login" className="bg-silver text-black font-semibold px-5 py-2 rounded-full transition-colors hover:bg-silver/80">
                   Log In
                 </a>
               </>
