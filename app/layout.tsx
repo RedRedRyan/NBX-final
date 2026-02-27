@@ -4,9 +4,9 @@ import LightRays from "@/components/LightRays";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 import { AuthProvider } from "@/lib/context/AuthContext";
 import { CompanyProvider } from "@/lib/context/CompanyContext";
-import { Wallet } from "lucide-react";
 import { WalletProvider } from "@/lib/context/WalletContext";
 import "@/lib/pollyfills";
 
@@ -46,7 +46,7 @@ export default function RootLayout({
                 <div className="hidden md:flex">
                   <Sidebar />
                 </div>
-                <div className="relative flex-1 pb-20 md:pb-0">
+                <div className="relative flex min-h-screen flex-1 flex-col pb-20 md:pb-0">
                   <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
                     <LightRays
                       raysOrigin="top-center-offset"
@@ -61,9 +61,10 @@ export default function RootLayout({
                       className="custom-rays"
                     />
                   </div>
-                  <main className="min-h-screen px-4 pt-6 md:px-10">
+                  <main className="flex-1 px-4 pt-6 md:px-10">
                     {children}
                   </main>
+                  <Footer />
                   <BottomNav />
                 </div>
               </div>
