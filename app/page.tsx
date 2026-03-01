@@ -42,7 +42,7 @@ const HomePage = () => {
     <section id="hero" className="relative overflow-hidden">
       <ParticlesBackground />
 
-     
+
 
 
       {/* Hero Section */}
@@ -82,7 +82,7 @@ const HomePage = () => {
                 <a href="/auth/signup" className="bg-primary text-black font-semibold px-5 py-2 rounded-full transition-colors hover:bg-primary/80">
                   Sign Up
                 </a>
-                <a href="/auth/login" className="bg-silver text-black font-semibold px-5 py-2 rounded-full transition-colors hover:bg-silver/80">
+                <a href="/auth/login" className="bg-white text-black font-semibold px-5 py-2 rounded-full transition-colors hover:bg-gray/80">
                   Log In
                 </a>
               </>

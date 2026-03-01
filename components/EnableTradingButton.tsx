@@ -9,8 +9,8 @@ interface EnableTradingButtonProps {
     onSuccess?: () => void;
 }
 
-// Backend Operator ID - this should match the OPERATOR_ID in your backend .env
-const BACKEND_OPERATOR_ID = process.env.NEXT_PUBLIC_OPERATOR_ID || '0.0.7504602';
+
+const BACKEND_OPERATOR_ID = process.env.NEXT_PUBLIC_OPERATOR_ID || '0.0.8052177';
 
 export default function EnableTradingButton({
     tokenId,
