@@ -23,6 +23,7 @@ const BottomNav = () => {
             return [
                 { href: `/company/dashboard/${companyId}`, label: "Dashboard", icon: "/icons/market.png" },
                 { href: `/company/dashboard/${companyId}/equity/new`, label: "Equity", icon: "/icons/earn.png" },
+                { href: "/", label: "Home", icon: "/icons/dash.png" },
                 { href: `/company/dashboard/${companyId}/bond/new`, label: "Bonds", icon: "/icons/trade.png" },
                 { href: "/wallet", label: "Wallet", icon: "/icons/wallet.png" },
             ]
@@ -32,6 +33,7 @@ const BottomNav = () => {
         return [
             { href: "/markets", label: "Markets", icon: "/icons/market.png" },
             { href: "/trade", label: "Trade", icon: "/icons/trade.png" },
+            { href: "/", label: "Home", icon: "/icons/dash.png" },
             { href: "/earn", label: "Earn", icon: "/icons/earn.png" },
             { href: "/wallet", label: "Wallet", icon: "/icons/wallet.png" },
         ]

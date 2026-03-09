@@ -89,6 +89,42 @@ export interface ApiResponse<T> {
   success?: boolean;
 }
 
+export interface GovernanceProposal {
+  _id: string;
+  companyId:
+    | string
+    | {
+        _id: string;
+        name: string;
+        symbol: string;
+      };
+  equityId?:
+    | string
+    | {
+        _id: string;
+        name: string;
+        symbol: string;
+        votingRights?: boolean;
+      };
+  title: string;
+  description: string;
+  proposalType: string;
+  status: 'active' | 'closed';
+  startDate: string;
+  endDate: string;
+  votesFor: number;
+  votesAgainst: number;
+  totalVotes: number;
+  votes?: Array<{
+    voterAccountId: string;
+    voterEmail?: string;
+    choice: 'for' | 'against';
+    votedAt: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export class ApiClient {
   private static getHeaders(token?: string, isFormData = false): HeadersInit {
     const headers: HeadersInit = {};
@@ -228,6 +264,60 @@ export class ApiClient {
 
   static async getEquities(companyId: string, token?: string): Promise<ApiResponse<any[]>> {
     return this.request<ApiResponse<any[]>>(`/companies/${companyId}/equity`, { token });
+  }
+
+  static async createProposal(
+    companyId: string,
+    data: {
+      title: string;
+      description: string;
+      proposalType?: string;
+      endDate: string;
+      equityId?: string;
+    },
+    token: string,
+  ) {
+    return this.request<ApiResponse<GovernanceProposal>>(`/companies/${companyId}/proposals`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      token,
+    });
+  }
+
+  static async getCompanyProposals(
+    companyId: string,
+    status?: 'active' | 'closed',
+    token?: string,
+  ): Promise<ApiResponse<GovernanceProposal[]>> {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return this.request<ApiResponse<GovernanceProposal[]>>(`/companies/${companyId}/proposals${queryString}`, { token });
+  }
+
+  static async voteProposal(
+    companyId: string,
+    proposalId: string,
+    vote: 'for' | 'against',
+    voterAccountId: string,
+    voterEmail: string | undefined,
+    token: string,
+  ) {
+    return this.request<ApiResponse<GovernanceProposal>>(`/companies/${companyId}/proposals/${proposalId}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ vote, voterAccountId, voterEmail }),
+      token,
+    });
+  }
+
+  static async getInvestorProposals(
+    status?: 'active' | 'closed',
+    token?: string,
+  ): Promise<ApiResponse<GovernanceProposal[]>> {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return this.request<ApiResponse<GovernanceProposal[]>>(`/companies/investor/proposals${queryString}`, { token });
   }
 
   // Upload endpoints

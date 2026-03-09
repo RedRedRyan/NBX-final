@@ -11,6 +11,7 @@ import ConnectButton from '@/components/connectButton';
 import Toggle from '@/components/ui/Toggle';
 import CountrySelect from '@/components/ui/CountrySelect';
 import { PAYMENT_TOKENS } from '@/lib/constants';
+import { ApiClient } from '@/lib/api/client';
 
 const STEPS = [
   { id: 1, name: 'General Information' },
@@ -60,6 +61,10 @@ const CreateEquityPage = () => {
 
     // Step 3: Rights & Privileges
     votingRights: false,
+    createInitialProposal: false,
+    proposalTitle: '',
+    proposalDescription: '',
+    proposalEndDate: '',
     informationRights: false,
     liquidationRights: false,
     conversionRights: false,
@@ -95,9 +100,6 @@ const CreateEquityPage = () => {
     onSuccess: (result) => {
       console.log('🎉 Equity created successfully:', result);
       setSuccess(`Equity deployed! Asset Address: ${result.assetAddress}`);
-      setTimeout(() => {
-        router.push(`/company/dashboard/${companyId}`);
-      }, 3000);
     },
     onError: (err) => {
       console.error('🔥 Equity creation error:', err);
@@ -112,7 +114,7 @@ const CreateEquityPage = () => {
     }
   }, [companyId, token]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -135,6 +137,12 @@ const CreateEquityPage = () => {
     if (currentStep === 2) {
       if (!formData.numberOfShares || !formData.nominalValue) {
         setError('Please fill in Number of Shares and Nominal Value');
+        return;
+      }
+    }
+    if (currentStep === 3 && formData.votingRights && formData.createInitialProposal) {
+      if (!formData.proposalTitle || !formData.proposalDescription || !formData.proposalEndDate) {
+        setError('Please complete proposal title, description and end date');
         return;
       }
     }
@@ -203,7 +211,36 @@ const CreateEquityPage = () => {
         companyAccountId: account.accountId,
       };
 
-      await createEquity(deployParams);
+      const deployResult = await createEquity(deployParams);
+
+      if (!deployResult.success) {
+        setError(deployResult.error || 'Failed to deploy equity');
+        return;
+      }
+
+      if (
+        token &&
+        formData.votingRights &&
+        formData.createInitialProposal &&
+        formData.proposalTitle &&
+        formData.proposalDescription &&
+        formData.proposalEndDate
+      ) {
+        await ApiClient.createProposal(
+          companyId,
+          {
+            title: formData.proposalTitle,
+            description: formData.proposalDescription,
+            proposalType: 'governance',
+            endDate: new Date(formData.proposalEndDate).toISOString(),
+          },
+          token,
+        );
+      }
+
+      setTimeout(() => {
+        router.push(`/company/dashboard/${companyId}/actions`);
+      }, 2500);
     } catch (err: any) {
       setError(err.message || 'Failed to create equity');
     }
@@ -497,6 +534,52 @@ const CreateEquityPage = () => {
                 checked={formData.votingRights}
                 onChange={handleToggle('votingRights')}
               />
+              {formData.votingRights && (
+                <div className="ml-2 mt-2 space-y-3 rounded-lg border border-border bg-dark-100 p-4">
+                  <Toggle
+                    id="createInitialProposal"
+                    label="Create Initial Voting Proposal"
+                    description="Open a governance proposal immediately after deploying this equity"
+                    checked={formData.createInitialProposal}
+                    onChange={handleToggle('createInitialProposal')}
+                  />
+                  {formData.createInitialProposal && (
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <label className="block text-sm font-medium text-light-100 mb-1">Proposal Title *</label>
+                        <input
+                          name="proposalTitle"
+                          value={formData.proposalTitle}
+                          onChange={handleChange}
+                          placeholder="e.g. Approve FY2026 Expansion Budget"
+                          className="w-full px-4 py-3 bg-dark-200 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-light-100 mb-1">Proposal Description *</label>
+                        <textarea
+                          name="proposalDescription"
+                          value={formData.proposalDescription}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, proposalDescription: e.target.value }))}
+                          rows={3}
+                          placeholder="Describe what shareholders are voting on."
+                          className="w-full px-4 py-3 bg-dark-200 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-light-100 mb-1">Voting End Date *</label>
+                        <input
+                          name="proposalEndDate"
+                          type="datetime-local"
+                          value={formData.proposalEndDate}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 bg-dark-200 border border-border rounded-lg text-white focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <Toggle
                 id="informationRights"
                 label="Information Rights"
@@ -755,10 +838,23 @@ const CreateEquityPage = () => {
                   {formData.isBlocklist && <span className="px-2 py-1 bg-primary/20 text-primary text-xs rounded">Blocklist</span>}
                   {formData.internalKycActivated && <span className="px-2 py-1 bg-primary/20 text-primary text-xs rounded">Internal KYC</span>}
                   {formData.votingRights && <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Voting</span>}
+                  {formData.votingRights && formData.createInitialProposal && <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Initial Proposal</span>}
                   {formData.informationRights && <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Information</span>}
                   {formData.liquidationRights && <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Liquidation</span>}
                 </div>
               </div>
+
+              {formData.votingRights && formData.createInitialProposal && (
+                <div className="pt-4 border-t border-border/50">
+                  <h4 className="text-sm font-semibold text-primary mb-3">Initial Governance Proposal</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="text-light-200">Title</div>
+                    <div className="text-white font-medium text-right">{formData.proposalTitle || '-'}</div>
+                    <div className="text-light-200">Ends</div>
+                    <div className="text-white font-medium text-right">{formData.proposalEndDate || '-'}</div>
+                  </div>
+                </div>
+              )}
 
               {/* Regulation */}
               <div className="pt-4 border-t border-border/50">

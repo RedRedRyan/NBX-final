@@ -1335,6 +1335,67 @@ class ATSServiceClass {
     }
 
     /**
+     * Send HBAR or an HTS token to another Hedera account ID.
+     * @param targetAccountId - Receiver Hedera account ID (e.g. 0.0.12345)
+     * @param amount - Human-readable amount
+     * @param tokenId - Optional token ID. If omitted, sends HBAR.
+     */
+    async transferAsset(
+        targetAccountId: string,
+        amount: number,
+        tokenId?: string
+    ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+        if (!this.isWalletConnected()) {
+            return { success: false, error: 'Wallet not connected' };
+        }
+
+        const accountPattern = /^\d+\.\d+\.\d+$/;
+        if (!accountPattern.test(targetAccountId)) {
+            return { success: false, error: 'Invalid destination account ID format' };
+        }
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return { success: false, error: 'Amount must be greater than zero' };
+        }
+
+        try {
+            const senderAccountId = this.initData?.account?.id?.value;
+            if (!senderAccountId) {
+                return { success: false, error: 'No sender account found' };
+            }
+
+            const { TransferTransaction, AccountId, TokenId, Hbar } = await import('@hashgraph/sdk');
+            const tx = new TransferTransaction();
+
+            if (tokenId) {
+                // Resolve token decimals for precise amount conversion.
+                const tokenInfoResp = await fetch(`${this.config.mirrorNode.baseUrl}/api/v1/tokens/${tokenId}`);
+                const tokenInfo = tokenInfoResp.ok ? await tokenInfoResp.json() : null;
+                const decimals = Number(tokenInfo?.decimals || 0);
+                const tinyAmount = Math.round(amount * Math.pow(10, decimals));
+
+                tx
+                    .addTokenTransfer(TokenId.fromString(tokenId), AccountId.fromString(senderAccountId), -tinyAmount)
+                    .addTokenTransfer(TokenId.fromString(tokenId), AccountId.fromString(targetAccountId), tinyAmount);
+            } else {
+                const tinybars = Math.round(amount * 100000000);
+                tx
+                    .addHbarTransfer(AccountId.fromString(senderAccountId), Hbar.fromTinybars(-tinybars))
+                    .addHbarTransfer(AccountId.fromString(targetAccountId), Hbar.fromTinybars(tinybars));
+            }
+
+            const transactionId = await this.signAndExecuteTransaction(tx);
+            return { success: true, transactionId };
+        } catch (error: any) {
+            console.error('[ATS] Transfer error:', error);
+            return {
+                success: false,
+                error: error?.message || 'Failed to transfer asset',
+            };
+        }
+    }
+
+    /**
      * Associate wallet with a token (required before receiving HTS tokens)
      * Uses Hedera SDK TokenAssociateTransaction with WalletConnect signing
      * @param tokenId - The Hedera token ID (e.g., "0.0.7228867")

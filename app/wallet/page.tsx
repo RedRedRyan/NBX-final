@@ -32,8 +32,10 @@ const WalletPage = () => {
     associateToken,
     isTokenAssociated,
     getTokenBalance,
+    transferAsset,
   } = useWallet();
   const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const [hideBalance, setHideBalance] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -41,6 +43,13 @@ const WalletPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [totalBalance, setTotalBalance] = useState(0);
   const [showKYCModal, setShowKYCModal] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    toAccountId: '',
+    amount: '',
+    tokenId: '',
+  });
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferMessage, setTransferMessage] = useState<string | null>(null);
 
   // KESy token state
   const [kesyBalance, setKesyBalance] = useState<number | null>(null);
@@ -233,6 +242,53 @@ const WalletPage = () => {
       router.push('/company/setup');
     } else {
       setShowKYCModal(true);
+    }
+  };
+
+  const handleTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTransferMessage(null);
+
+    if (!isConnected) {
+      setTransferMessage('Connect wallet to send assets');
+      return;
+    }
+
+    const accountPattern = /^\\d+\\.\\d+\\.\\d+$/;
+    if (!accountPattern.test(transferForm.toAccountId.trim())) {
+      setTransferMessage('Enter a valid Hedera account ID (e.g. 0.0.12345)');
+      return;
+    }
+
+    const amount = Number(transferForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTransferMessage('Enter a valid amount greater than zero');
+      return;
+    }
+
+    try {
+      setTransferLoading(true);
+      const result = await transferAsset(
+        transferForm.toAccountId.trim(),
+        amount,
+        transferForm.tokenId || undefined,
+      );
+
+      if (!result.success) {
+        setTransferMessage(result.error || 'Transfer failed');
+        return;
+      }
+
+      setTransferMessage(`Transfer sent. Transaction ID: ${result.transactionId || 'submitted'}`);
+      setTransferForm({ toAccountId: '', amount: '', tokenId: '' });
+      setTimeout(() => {
+        setShowTransferModal(false);
+        window.location.reload();
+      }, 1200);
+    } catch (err: any) {
+      setTransferMessage(err.message || 'Transfer failed');
+    } finally {
+      setTransferLoading(false);
     }
   };
 
@@ -470,7 +526,7 @@ const WalletPage = () => {
                     // TODO: setShowWithdrawModal(true);
                     break;
                   case 'transfer':
-                    // TODO: setShowTransferModal(true);
+                    setShowTransferModal(true);
                     break;
                   case 'convert':
                     // TODO: setShowConvertModal(true);
@@ -581,6 +637,75 @@ const WalletPage = () => {
       <KYCModal isOpen={showKYCModal} onClose={() => setShowKYCModal(false)} />
       {/* Deposit Modal */}
       <DepositModal isOpen={showDepositModal} onClose={() => setShowDepositModal(false)} />
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-dark-100 border border-border rounded-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-white">Send Asset</h3>
+              <button
+                className="text-light-200 hover:text-white"
+                onClick={() => setShowTransferModal(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleTransferSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm text-light-200 mb-1">Asset</label>
+                <select
+                  value={transferForm.tokenId}
+                  onChange={(e) => setTransferForm((prev) => ({ ...prev, tokenId: e.target.value }))}
+                  className="w-full rounded-lg bg-dark-200 border border-border px-3 py-2 text-white"
+                >
+                  <option value="">HBAR</option>
+                  {assets
+                    .filter((asset) => asset.tokenId)
+                    .map((asset) => (
+                      <option key={asset.tokenId} value={asset.tokenId}>
+                        {asset.symbol} ({asset.tokenId})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-light-200 mb-1">Destination Account ID</label>
+                <input
+                  value={transferForm.toAccountId}
+                  onChange={(e) => setTransferForm((prev) => ({ ...prev, toAccountId: e.target.value }))}
+                  placeholder="0.0.12345"
+                  className="w-full rounded-lg bg-dark-200 border border-border px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-light-200 mb-1">Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={transferForm.amount}
+                  onChange={(e) => setTransferForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full rounded-lg bg-dark-200 border border-border px-3 py-2 text-white"
+                />
+              </div>
+
+              {transferMessage && <div className="text-sm text-light-200">{transferMessage}</div>}
+
+              <button
+                type="submit"
+                disabled={transferLoading}
+                className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 disabled:opacity-50"
+              >
+                {transferLoading ? 'Sending...' : 'Send'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

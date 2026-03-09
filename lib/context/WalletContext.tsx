@@ -21,6 +21,11 @@ interface WalletContextType {
   associateToken: (tokenId: string) => Promise<{ success: boolean; transactionId?: string; error?: string }>;
   isTokenAssociated: (tokenId: string) => Promise<boolean>;
   getTokenBalance: (tokenId: string) => Promise<{ balance: number; decimals: number } | null>;
+  transferAsset: (
+    targetAccountId: string,
+    amount: number,
+    tokenId?: string,
+  ) => Promise<{ success: boolean; transactionId?: string; error?: string }>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -138,6 +143,11 @@ const WalletProviderInner: React.FC<{ children: React.ReactNode }> = ({
   const associateToken = (tokenId: string) => withService<{ success: boolean; transactionId?: string; error?: string }>(s => s.associateToken(tokenId));
   const isTokenAssociated = (tokenId: string) => withService<boolean>(s => s.isTokenAssociated(tokenId));
   const getTokenBalance = (tokenId: string) => withService<{ balance: number; decimals: number } | null>(s => s.getTokenBalance(tokenId));
+  const transferAsset = (
+    targetAccountId: string,
+    amount: number,
+    tokenId?: string,
+  ) => withService<{ success: boolean; transactionId?: string; error?: string }>(s => s.transferAsset(targetAccountId, amount, tokenId));
 
 
 
@@ -154,6 +164,7 @@ const WalletProviderInner: React.FC<{ children: React.ReactNode }> = ({
         associateToken,
         isTokenAssociated,
         getTokenBalance,
+        transferAsset,
       }}
     >
       {children}

@@ -31,6 +31,7 @@ const CompanyDashboardPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [securities, setSecurities] = useState<Security[]>([]);
   const [securitiesLoading, setSecuritiesLoading] = useState(false);
+  const equities = securities.filter((security) => security.type === 'equity');
 
   // Callback to refresh data upon successful operations
   const handleSecurityRefresh = () => {
@@ -296,7 +297,16 @@ const CompanyDashboardPage = () => {
                   <p className="text-sm mt-1">Use the buttons above to issue your first security token</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-6">
+                  <div className="rounded-lg border border-border bg-dark-100 p-4">
+                    <h4 className="font-semibold text-white">Equities</h4>
+                    {equities.length === 0 ? (
+                      <p className="text-sm text-light-200 mt-2">No equities under this company account yet.</p>
+                    ) : (
+                      <p className="text-sm text-light-200 mt-2">{equities.length} equity issue(s) found.</p>
+                    )}
+                  </div>
+                  <div className="space-y-3">
                   {securities.map((security) => (
                     <Link
                       key={security._id}
@@ -357,6 +367,7 @@ const CompanyDashboardPage = () => {
 
                     </Link>
                   ))}
+                  </div>
                 </div>
               )}
             </div>
