@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Schibsted_Grotesk, Martian_Mono } from "next/font/google";
 import LightRays from "@/components/LightRays";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import AppSidebar from "@/components/AppSidebar";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 import { AuthProvider } from "@/lib/context/AuthContext";
@@ -44,7 +44,7 @@ export default function RootLayout({
             <WalletProvider>
               <div className="flex min-h-screen">
                 <div className="hidden md:flex">
-                  <Sidebar />
+                  <AppSidebar />
                 </div>
                 <div className="relative flex min-h-screen flex-1 flex-col pb-20 md:pb-0">
                   <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">

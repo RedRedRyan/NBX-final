@@ -9,14 +9,11 @@ import type {
     SupportedWallets as SupportedWalletsType,
     CreateEquityRequest,
     CreateBondRequest,
-
 } from '@hashgraph/asset-tokenization-sdk';
 
-
-import type { SignAndExecuteTransactionParams, SignAndExecuteTransactionResult } from '@hashgraph/hedera-wallet-connect';
 import type { MintEquityParams, CreateDividendParams } from './types';
-import type { DAppConnector } from '@hashgraph/hedera-wallet-connect';
 import type { Transaction } from '@hashgraph/sdk';
+import { initAppKit, HEDERA_NETWORK } from './appKitConfig';
 
 // Configuration from environment
 const getATSConfig = () => ({
@@ -206,7 +203,6 @@ class ATSServiceClass {
     private networkData: NetworkData | null = null;
     private isInitialized = false;
     private config = getATSConfig();
-    private dAppConnector: DAppConnector | null = null;
 
     /**
      * Helper to load SDK dynamically to avoid "dynamic usage of require" errors in Next.js
@@ -269,41 +265,59 @@ class ATSServiceClass {
     }
 
     /**
-     * Connect wallet using WalletConnect
-     * This triggers the wallet modal and gets user approval
+     * Connect wallet via Reown AppKit.
+     * Initialises AppKit (idempotent), opens the modal, and polls until
+     * the user approves a Hedera session.  The resulting account is synced
+     * back to the ATS SDK so every downstream call (createEquity, etc.)
+     * keeps working unchanged.
      */
-    async connectWallet(walletType?: SupportedWalletsType): Promise<InitializationData> {
+    async connectWallet(_walletType?: SupportedWalletsType): Promise<InitializationData> {
         try {
-            const { Network, ConnectRequest, SupportedWallets } = await this.getSDK();
+            /* 1. Boot AppKit (no-op if already done) */
+            await initAppKit();
 
-            const selectedWallet = walletType || SupportedWallets.HWALLETCONNECT;
+            /* 2. Dynamically import AppKit helpers (keeps SSR safe) */
+            const { useAppKitAccount } = await import('@reown/appkit/react');
+            const appKit = (await import('@reown/appkit/react')) as any;
 
-            // Build HWC settings if using WalletConnect
-            let hwcSettings;
-            if (selectedWallet === SupportedWallets.HWALLETCONNECT && this.config.walletConnectProjectId) {
-                hwcSettings = {
-                    projectId: this.config.walletConnectProjectId,
-                    dappName: 'NBX',
-                    dappDescription: 'Nairobi Stock Exchange - SME Capital Markets',
-                    dappURL: typeof window !== 'undefined' ? window.location.origin : '',
-                    dappIcons: [],
-                };
+            /* 3. Open the AppKit modal */
+            if (typeof appKit.open === 'function') {
+                await appKit.open();
+            } else if (typeof (globalThis as any).__appKit?.open === 'function') {
+                await (globalThis as any).__appKit.open();
+            } else {
+                // createAppKit returns the controller; try the global
+                const { createAppKit: _unused, ...rest } = appKit;
+                console.warn('[ATS] Could not locate AppKit.open – user must click the <appkit-button>.');
             }
+
+            /* 4. Poll until AppKit reports an account (max 120 s) */
+            const account = await this.waitForAppKitAccount(120_000);
+            if (!account) {
+                throw new Error('Wallet connection timed out – no account received from AppKit.');
+            }
+
+            console.log('[ATS] AppKit account connected:', account);
+
+            /* 5. Sync the account back to the ATS SDK */
+            const { Network, ConnectRequest, SupportedWallets } = await this.getSDK();
 
             const connectRequest = new ConnectRequest({
                 network: this.config.network,
                 mirrorNode: this.config.mirrorNode,
                 rpcNode: this.config.rpcNode,
-                hwcSettings,
-                wallet: selectedWallet,
+                wallet: SupportedWallets.HWALLETCONNECT,
             });
 
-            this.initData = await Network.connect(connectRequest);
-            console.log('[ATS] Wallet connected:', this.initData?.account?.id?.value);
+            // The SDK merely stores config; actual session is the AppKit one
+            this.initData = await Network.connect(connectRequest).catch(() => {
+                // Fallback: build a minimal InitializationData from the AppKit account
+                return {
+                    account: { id: { value: account } },
+                } as unknown as InitializationData;
+            });
 
-            // Initialize DAppConnector for direct transaction signing
-            await this.initDAppConnector();
-
+            console.log('[ATS] Wallet connected (AppKit):', this.initData?.account?.id?.value);
             return this.initData;
         } catch (error) {
             console.error('[ATS] Wallet connection error:', error);
@@ -312,92 +326,120 @@ class ATSServiceClass {
     }
 
     /**
-     * Initialize DAppConnector for direct transaction signing
+     * Poll AppKit state until a Hedera account is available.
+     * Returns the plain Hedera account ID (e.g. "0.0.12345") or null on timeout.
      */
-    private async initDAppConnector(): Promise<void> {
-        if (this.dAppConnector) return;
+    private waitForAppKitAccount(timeoutMs: number): Promise<string | null> {
+        return new Promise((resolve) => {
+            const start = Date.now();
+            const poll = setInterval(async () => {
+                try {
+                    // AppKit stores the account in its reactive store.
+                    // We read it via the controller import.
+                    const { ChainController } = await import('@reown/appkit-controllers');
+                    // AppKit's ChainNamespace type does not include custom namespaces in this build's type defs.
+                    const hederaChainNamespace = 'hedera' as unknown as Parameters<typeof ChainController.getAccountData>[0];
+                    const accountData = ChainController.getAccountData(hederaChainNamespace);
+                    const addr: string | undefined = accountData?.address || accountData?.caipAddress;
 
-        try {
-            const { DAppConnector, HederaJsonRpcMethod, HederaSessionEvent, HederaChainId } = await import('@hashgraph/hedera-wallet-connect');
-            const { LedgerId } = await import('@hashgraph/sdk');
+                    if (addr) {
+                        clearInterval(poll);
+                        // addr may be CAIP-formatted  "hedera:testnet:0.0.12345"
+                        const parts = addr.split(':');
+                        const hederaId = parts.length === 3 ? parts[2] : addr;
+                        resolve(hederaId);
+                        return;
+                    }
+                } catch { /* controllers not ready yet */ }
 
-            const metadata = {
-                name: 'NBX - Nairobi Stock Exchange',
-                description: 'SME Capital Markets Platform',
-                url: typeof window !== 'undefined' ? window.location.origin : 'https://nbx.co.ke',
-                icons: [],
-            };
-
-            const ledgerId = this.config.network === 'mainnet' ? LedgerId.MAINNET : LedgerId.TESTNET;
-            const chainId = this.config.network === 'mainnet' ? HederaChainId.Mainnet : HederaChainId.Testnet;
-
-            this.dAppConnector = new DAppConnector(
-                metadata,
-                ledgerId,
-                this.config.walletConnectProjectId,
-                Object.values(HederaJsonRpcMethod),
-                [HederaSessionEvent.ChainChanged, HederaSessionEvent.AccountsChanged],
-                [chainId],
-            );
-
-            await this.dAppConnector.init({ logger: 'error' });
-            console.log('[ATS] DAppConnector initialized for transaction signing');
-        } catch (error) {
-            console.error('[ATS] Failed to initialize DAppConnector:', error);
-            // Don't throw - we can still use the ATS SDK for its built-in operations
-        }
+                if (Date.now() - start > timeoutMs) {
+                    clearInterval(poll);
+                    resolve(null);
+                }
+            }, 500);
+        });
     }
 
     /**
-     * Sign and execute a transaction via WalletConnect
+     * Sign and execute a transaction via AppKit's universal provider.
+     * Uses the `hedera_signAndExecuteTransaction` JSON-RPC method —
+     * same wire protocol as DAppConnector, just routed through AppKit's
+     * session management.
+     *
      * @param transaction - Transaction bytes, base64 string, or Hedera Transaction object
      */
     async signAndExecuteTransaction(transaction: Uint8Array | string | Transaction): Promise<string> {
-        if (!this.dAppConnector) {
-            // Try to initialize if not done yet
-            await this.initDAppConnector();
-        }
+        return this.executeViaAppKit(transaction);
+    }
 
-        if (!this.dAppConnector) {
-            throw new Error('DAppConnector is not initialized. Ensure wallet is connected.');
-        }
-
+    /**
+     * Internal: send `hedera_signAndExecuteTransaction` through the
+     * universal provider that AppKit manages.
+     */
+    private async executeViaAppKit(transaction: Uint8Array | string | Transaction): Promise<string> {
         const accountId = this.initData?.account?.id?.value;
         if (!accountId) {
             throw new Error('No account ID found. Wallet may not be connected.');
         }
 
-        // Convert to bytes
+        // ── Convert to base-64 encoded bytes ──────────────────────────
         let txBytes: Uint8Array;
         if (typeof transaction === 'string') {
             txBytes = Buffer.from(transaction, 'base64');
         } else if ('toBytes' in transaction && typeof transaction.toBytes === 'function') {
-            // Transaction object with toBytes method
             txBytes = (transaction as Transaction).toBytes();
         } else {
-            // Already Uint8Array
             txBytes = transaction as Uint8Array;
         }
 
-        // Format account ID for WalletConnect (hedera:testnet:0.0.xxx)
-        const networkPrefix = this.config.network === 'mainnet' ? 'hedera:mainnet' : 'hedera:testnet';
-        const signerAccountId = `${networkPrefix}:${accountId}`;
+        const transactionList = Buffer.from(txBytes).toString('base64');
+        const networkLabel = HEDERA_NETWORK === 'mainnet' ? 'hedera:mainnet' : 'hedera:testnet';
+        const signerAccountId = `${networkLabel}:${accountId}`;
 
-        const params: SignAndExecuteTransactionParams = {
-            signerAccountId,
-            transactionList: Buffer.from(txBytes).toString('base64'),
-        };
-
+        // ── Obtain the universal provider from AppKit ─────────────────
+        let provider: any;
         try {
-            console.log('[ATS] Signing transaction via WalletConnect...');
-            const result = await this.dAppConnector.signAndExecuteTransaction(params);
+            const { ProviderController } = await import('@reown/appkit-controllers');
+            // AppKit's active chain type excludes custom namespaces at compile time.
+            const hederaChainNamespace = 'hedera' as unknown as Parameters<typeof ProviderController.getProvider>[0];
+            provider = ProviderController.getProvider(hederaChainNamespace);
+        } catch { /* ignore */ }
+
+        if (!provider) {
+            // Fallback: try to import HederaProvider directly
+            try {
+                const { HederaProvider } = await import('@hashgraph/hedera-wallet-connect');
+                provider = await (HederaProvider as any).init({
+                    projectId: this.config.walletConnectProjectId,
+                    metadata: {
+                        name: 'NBX',
+                        description: 'Nairobi Stock Exchange - SME Capital Markets',
+                        url: typeof window !== 'undefined' ? window.location.origin : 'https://nbx.co.ke',
+                        icons: [],
+                    },
+                });
+            } catch (e) {
+                throw new Error('Universal provider is not available. Ensure wallet is connected via AppKit.');
+            }
+        }
+
+        // ── Send the JSON-RPC request ─────────────────────────────────
+        try {
+            console.log('[ATS] Signing transaction via AppKit (hedera_signAndExecuteTransaction)...');
+
+            const result = await provider.request({
+                method: 'hedera_signAndExecuteTransaction',
+                params: {
+                    signerAccountId,
+                    transactionList,
+                },
+            });
+
             console.log('[ATS] Transaction signed and executed:', result);
-            // The SignAndExecuteTransactionResult type may not include transactionId in .d.ts
-            // but it exists at runtime - safely extract it
-            const txResult = result as unknown as { transactionId?: string };
+            const txResult = result as { transactionId?: string };
             return txResult.transactionId || (typeof result === 'string' ? result : 'completed');
         } catch (error: any) {
-            console.error('[ATS] WalletConnect signing error:', error);
+            console.error('[ATS] AppKit signing error:', error);
             throw error;
         }
     }

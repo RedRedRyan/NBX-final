@@ -3,14 +3,15 @@
 // Force dynamic rendering - useSearchParams requires it for prerendering
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, Suspense } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { companies, tradeModes } from '@/lib/constants';
 import { useAuth } from '@/lib/context/AuthContext';
+import AuthActionModal from '@/components/AuthActionModal';
 
 // Wrapper component to use searchParams inside Suspense
 const TradePageContent = () => {
-  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
@@ -21,28 +22,24 @@ const TradePageContent = () => {
   const [amount, setAmount] = useState('');
   const [price, setPrice] = useState('');
   const [activeTab, setActiveTab] = useState('orders');
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Get company data based on symbol
   const company = companies.find(c => c.symbol === symbol) || companies[0];
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-    }
-  }, [user, router]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     // In a real app, this would submit the order to an API
     alert(`Order placed: ${side} ${amount} ${symbol} at ${orderType === 'market' ? 'market price' : `$${price}`}`);
     setAmount('');
     setPrice('');
   };
-
-  if (!user) {
-    return null; // Don't render anything while redirecting
-  }
+  
+  const loginHref = `/auth/login?next=${encodeURIComponent(pathname || '/trade')}`;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -196,7 +193,9 @@ const TradePageContent = () => {
                 : 'bg-red-600 hover:bg-red-700 text-white'
                 }`}
             >
-              {side === (tradeMode === 'spot' ? 'buy' : 'long')
+              {!user
+                ? 'Login to Trade'
+                : side === (tradeMode === 'spot' ? 'buy' : 'long')
                 ? tradeMode === 'spot' ? 'Buy' : 'Long'
                 : tradeMode === 'spot' ? 'Sell' : 'Short'} {symbol}
             </button>
@@ -256,6 +255,12 @@ const TradePageContent = () => {
           </div>
         </div>
       </div>
+      <AuthActionModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="You can explore the market data, but placing orders requires login."
+        loginHref={loginHref}
+      />
     </div>
   );
 };

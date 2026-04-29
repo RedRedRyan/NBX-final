@@ -1,33 +1,34 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
+import AuthActionModal from '@/components/AuthActionModal';
 
 const FixedEarningPage = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   
   const [amount, setAmount] = useState('');
   const [lockPeriod, setLockPeriod] = useState('30');
-  
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-    }
-  }, [user, router]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [baseTimestamp] = useState(() => Date.now());
+  const loginHref = `/auth/login?next=${encodeURIComponent(pathname || '/earn/fixed')}`;
+  const unlockDate = new Date(
+    baseTimestamp + parseInt(lockPeriod) * 24 * 60 * 60 * 1000
+  ).toLocaleDateString();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     // In a real app, this would submit the staking request to an API
     alert(`Locked ${amount} USD for ${lockPeriod} days in fixed earning`);
     setAmount('');
   };
-
-  if (!user) {
-    return null; // Don't render anything while redirecting
-  }
 
   // Calculate APY based on lock period
   const getAPY = (period: string) => {
@@ -126,7 +127,7 @@ const FixedEarningPage = () => {
               <div className="flex justify-between mt-2">
                 <span className="text-light-100">Unlock Date:</span>
                 <span className="text-primary font-bold">
-                  {new Date(Date.now() + parseInt(lockPeriod) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {unlockDate}
                 </span>
               </div>
             </div>
@@ -142,7 +143,7 @@ const FixedEarningPage = () => {
               type="submit"
               className="w-full bg-primary text-white py-3 rounded-md font-medium hover:bg-primary/90"
             >
-              Lock Now
+              {user ? "Lock Now" : "Login to Lock"}
             </button>
           </form>
         </div>
@@ -269,6 +270,12 @@ const FixedEarningPage = () => {
           </div>
         </div>
       </div>
+      <AuthActionModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Locking assets is a protected action. Please log in first."
+        loginHref={loginHref}
+      />
     </div>
   );
 };

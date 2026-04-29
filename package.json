@@ -13,6 +13,7 @@
     "@hashgraph/hedera-wallet-connect": "^2.0.4",
     "@hashgraph/proto": "^2.25.0",
     "@hashgraph/sdk": "^2.78.0",
+    "@reown/appkit": "^1.8.19",
     "@tsparticles/react": "^3.0.0",
     "@walletconnect/modal": "^2.7.0",
     "babel-plugin-react-compiler": "^1.0.0",

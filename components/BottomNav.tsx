@@ -12,6 +12,10 @@ const BottomNav = () => {
     const { companies } = useCompany()
     const pathname = usePathname()
 
+    if (pathname.startsWith('/auditor')) {
+        return null
+    }
+
     // Get the first company ID for company users
     const companyId = companies?.[0]?._id
 

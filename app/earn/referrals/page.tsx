@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
+import AuthActionModal from '@/components/AuthActionModal';
 
 const ReferralsPage = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   
   const [copied, setCopied] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   // Mock referral data
   const referralCode = "NBX" + (user?.email?.substring(0, 5) || "USER").toUpperCase();
@@ -21,22 +24,17 @@ const ReferralsPage = () => {
     availableEarnings: 0
   };
   
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-    }
-  }, [user, router]);
+  const loginHref = `/auth/login?next=${encodeURIComponent(pathname || '/earn/referrals')}`;
 
   const copyToClipboard = () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  if (!user) {
-    return null; // Don't render anything while redirecting
-  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -143,14 +141,22 @@ const ReferralsPage = () => {
             </div>
             
             <button
-              disabled={referralStats.availableEarnings <= 0}
+              onClick={() => {
+                if (!user) {
+                  setShowAuthModal(true);
+                  return;
+                }
+              }}
+              disabled={!!user && referralStats.availableEarnings <= 0}
               className={`w-full py-3 rounded-md font-medium ${
-                referralStats.availableEarnings > 0
+                !user
+                  ? 'bg-primary text-white hover:bg-primary/90'
+                  : referralStats.availableEarnings > 0
                   ? 'bg-primary text-white hover:bg-primary/90'
                   : 'bg-dark-200 text-light-200 cursor-not-allowed'
               }`}
             >
-              Withdraw Earnings
+              {user ? 'Withdraw Earnings' : 'Login to Access Referrals'}
             </button>
           </div>
         </div>
@@ -230,6 +236,12 @@ const ReferralsPage = () => {
           </div>
         </div>
       </div>
+      <AuthActionModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Referral rewards are tied to your account. Please log in to continue."
+        loginHref={loginHref}
+      />
     </div>
   );
 };

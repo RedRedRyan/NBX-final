@@ -1,18 +1,24 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/context/AuthContext';
 
 const LoginPage = () => {
   const router = useRouter();
-  const { login, user } = useAuth();
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const nextPathParam = searchParams.get('next');
+  const safeNextPath =
+    nextPathParam && nextPathParam.startsWith('/') && !nextPathParam.startsWith('//')
+      ? nextPathParam
+      : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,12 +34,10 @@ const LoginPage = () => {
       setIsLoading(true);
       await login(email, password);
 
-      // Redirect based on user role
-      // Note: user will be updated after login, so we check the response
-      // For now, redirect to a default page and let the app handle role-based routing
-      router.push('/wallet');
-    } catch (error: any) {
-      setError(error?.message || 'Invalid email or password');
+      router.push(safeNextPath || '/wallet');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Invalid email or password';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +121,7 @@ const LoginPage = () => {
 
         <div className="text-center mt-4">
           <p className="text-sm text-light-100">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/auth/signup" className="text-primary hover:text-primary/80">
               Create an account
             </Link>

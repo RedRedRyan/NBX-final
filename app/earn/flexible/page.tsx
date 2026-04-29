@@ -1,33 +1,30 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
+import AuthActionModal from '@/components/AuthActionModal';
 
 const FlexibleEarningPage = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   
   const [amount, setAmount] = useState('');
   const [duration, setDuration] = useState('30');
-  
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-    }
-  }, [user, router]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const loginHref = `/auth/login?next=${encodeURIComponent(pathname || '/earn/flexible')}`;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     // In a real app, this would submit the staking request to an API
     alert(`Staked ${amount} USD for flexible earning`);
     setAmount('');
   };
-
-  if (!user) {
-    return null; // Don't render anything while redirecting
-  }
 
   // Calculate estimated earnings based on amount and APY
   const apy = 5; // 5% APY for flexible earning
@@ -118,7 +115,7 @@ const FlexibleEarningPage = () => {
               type="submit"
               className="w-full bg-primary text-white py-3 rounded-md font-medium hover:bg-primary/90"
             >
-              Stake Now
+              {user ? "Stake Now" : "Login to Stake"}
             </button>
           </form>
         </div>
@@ -227,6 +224,12 @@ const FlexibleEarningPage = () => {
           </div>
         </div>
       </div>
+      <AuthActionModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Staking is a protected action. Please log in first."
+        loginHref={loginHref}
+      />
     </div>
   );
 };

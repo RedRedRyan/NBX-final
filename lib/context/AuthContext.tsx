@@ -4,22 +4,27 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type UserRole = 'investor' | 'company' | 'auditor';
 
+// Phase 1: auditor console supports additional personas. Backends may choose to
+// map these from `role` or `accountType` later.
+export type AuditorRole = 'regulator_analyst' | 'compliance_admin';
+export type ExtendedUserRole = UserRole | AuditorRole;
+
 export type User = {
   id?: string;
   email: string;
   useremail: string;
-  role: UserRole;
+  role: ExtendedUserRole;
   hederaAccountId?: string;
   hederaEVMAccount?: string;
   companyId?: string;
   companyName?: string;
-  accountType?: UserRole;
+  accountType?: ExtendedUserRole;
 };
 
 type RawUser = Partial<User> & {
   email?: string;
   useremail?: string;
-  role?: UserRole;
+  role?: ExtendedUserRole;
 };
 
 type AuthContextType = {
@@ -36,6 +41,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+const isExtendedUserRole = (value: unknown): value is ExtendedUserRole => {
+  return (
+    value === 'investor' ||
+    value === 'company' ||
+    value === 'auditor' ||
+    value === 'regulator_analyst' ||
+    value === 'compliance_admin'
+  );
+};
+
 const normalizeUser = (userData: RawUser | null | undefined): User | null => {
   if (!userData) {
     return null;
@@ -48,7 +63,7 @@ const normalizeUser = (userData: RawUser | null | undefined): User | null => {
     ...userData,
     email,
     useremail,
-    role: userData.role ?? 'investor',
+    role: isExtendedUserRole(userData.role) ? userData.role : 'investor',
   } as User;
 };
 

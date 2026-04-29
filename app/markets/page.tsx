@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import { companies, marketFilters } from '@/lib/constants';
 import { useAuth } from '@/lib/context/AuthContext';
 import { ApiClient } from '@/lib/api/client';
 import InvestButton from '@/components/Marketplace/InvestButton';
+import AuthActionModal from '@/components/AuthActionModal';
 
 // Security interface for IPO listings
 interface Security {
@@ -49,6 +49,7 @@ interface Security {
 
 const MarketsPage = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   const email = user?.email ?? user?.useremail ?? '';
   const emailInitial = email ? email.charAt(0).toUpperCase() : 'U';
@@ -61,16 +62,10 @@ const MarketsPage = () => {
   const [securitiesLoading, setSecuritiesLoading] = useState(false);
   const [selectedSecurity, setSelectedSecurity] = useState<Security | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Investment state
   const [investAmount, setInvestAmount] = useState<number>(10);
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-    }
-  }, [user, router]);
 
   // Fetch securities when premarket tab is active
   useEffect(() => {
@@ -143,10 +138,14 @@ const MarketsPage = () => {
     const price = parseFloat(selectedSecurity.nominalValue) || 0;
     return investAmount * price;
   };
+  
+  const loginHref = `/auth/login?next=${encodeURIComponent(pathname || '/markets')}`;
 
-  if (!user) {
-    return null;
-  }
+  const requireAuthForAction = () => {
+    if (user) return true;
+    setShowAuthModal(true);
+    return false;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -211,7 +210,7 @@ const MarketsPage = () => {
               }`}
             onClick={() => setActiveFilter(filter.id)}
           >
-            {filter.id === 'premarket' ? '🚀 IPO / Premarket' : filter.label}
+            {filter.id === 'premarket' ? 'IPO / Premarket' : filter.label}
           </button>
         ))}
       </div>
@@ -394,7 +393,10 @@ const MarketsPage = () => {
                 <div className="col-span-1 text-right self-center">
                   <button
                     className="bg-primary text-white px-3 py-1 rounded-md text-sm hover:bg-primary/90"
-                    onClick={() => router.push(`/trade?symbol=${company.symbol}`)}
+                    onClick={() => {
+                      if (!requireAuthForAction()) return;
+                      router.push(`/trade?symbol=${company.symbol}`);
+                    }}
                   >
                     Trade
                   </button>
@@ -457,7 +459,15 @@ const MarketsPage = () => {
                   </div>
                 </div>
                 <div className="w-full md:w-1/3">
-                  {selectedSecurity.treasuryAccountId ? (
+                  {!user ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthModal(true)}
+                      className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+                    >
+                      Login to Invest
+                    </button>
+                  ) : selectedSecurity.treasuryAccountId ? (
                     <InvestButton
                       equityTokenId={selectedSecurity.assetAddress}
                       stableCoinId={selectedSecurity.paymentTokens?.[0] || '0.0.7228867'}
@@ -604,6 +614,12 @@ const MarketsPage = () => {
           </div>
         </div>
       )}
+      <AuthActionModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="You can browse all listings, but you need to log in before trading or investing."
+        loginHref={loginHref}
+      />
     </div>
   );
 };

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useAuth, UserRole } from '@/lib/context/AuthContext';
 import ConnectButton from '@/components/connectButton';
 
+type SignupRole = Extract<UserRole, 'investor' | 'company' | 'auditor'>;
+
 const SignupPage = () => {
   const router = useRouter();
   const { signup } = useAuth();
@@ -13,7 +15,7 @@ const SignupPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('investor');
+  const [role, setRole] = useState<SignupRole>('investor');
   const [accountId, setAccountId] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);

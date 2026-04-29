@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useWallet } from "@/lib/context/WalletContext";
+import { initAppKit, openAppKitModal } from "@/lib/hedera/appKitConfig";
 
 interface ConnectButtonProps {
   onAccountConnected?: (accountId: string) => void;
@@ -16,6 +17,30 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({ onAccountConnected }) => 
     loading,
     error,
   } = useWallet();
+  const [appKitReady, setAppKitReady] = useState(false);
+  const [appKitError, setAppKitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const bootstrapAppKit = async () => {
+      try {
+        await initAppKit();
+        if (isMounted) setAppKitReady(true);
+      } catch (err) {
+        console.error("Failed to initialize AppKit:", err);
+        if (isMounted) {
+          setAppKitError("Failed to initialize wallet modal");
+        }
+      }
+    };
+
+    void bootstrapAppKit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Watch for account changes and notify parent component
   useEffect(() => {
@@ -30,6 +55,14 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({ onAccountConnected }) => 
 
   const handleConnect = async () => {
     try {
+      setAppKitError(null);
+
+      if (!appKitReady) {
+        await initAppKit();
+        setAppKitReady(true);
+      }
+
+      await openAppKitModal({ view: "Connect" });
       await connect();
     } catch (err) {
       console.error("Error connecting wallet:", err);
@@ -55,10 +88,10 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({ onAccountConnected }) => 
         <button
           type="button"
           onClick={handleConnect}
-          disabled={loading}
+          disabled={loading || !appKitReady}
           className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
         >
-          {loading ? "Connecting..." : "Connect to Hedera Wallet"}
+          {loading ? "Connecting..." : appKitReady ? "Connect via AppKit" : "Preparing AppKit..."}
         </button>
       ) : (
         <div className="flex items-center gap-3">
@@ -75,9 +108,9 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({ onAccountConnected }) => 
         </div>
       )}
 
-      {error && (
+      {(error || appKitError) && (
         <div className="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm">
-          {error}
+          {error || appKitError}
         </div>
       )}
     </div>

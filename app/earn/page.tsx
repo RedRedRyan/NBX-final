@@ -1,26 +1,18 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { earnOptions } from '@/lib/constants';
 import { useAuth } from '@/lib/context/AuthContext';
 import Image from "next/image";
+import AuthActionModal from '@/components/AuthActionModal';
 
 const EarnPage = () => {
-  const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
-  
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-    }
-  }, [user, router]);
-
-  if (!user) {
-    return null; // Don't render anything while redirecting
-  }
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const loginHref = `/auth/login?next=${encodeURIComponent(pathname || '/earn')}`;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -34,6 +26,11 @@ const EarnPage = () => {
           <Link 
             href={`/earn/${option.id}`} 
             key={option.id}
+            onClick={(event) => {
+              if (user) return;
+              event.preventDefault();
+              setShowAuthModal(true);
+            }}
             className="bg-dark-100 border border-border rounded-lg p-6 hover:border-primary transition-colors"
           >
             <div className=" rounded-full flex items-center justify-center mb-4">
@@ -61,6 +58,12 @@ const EarnPage = () => {
           </Link>
         ))}
       </div>
+      <AuthActionModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="You can browse earning products, but starting one requires login."
+        loginHref={loginHref}
+      />
     </div>
   );
 };
